@@ -1,0 +1,80 @@
+\documentclass[10pt, letter]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in, footskip=0.25in]{geometry}
+\usepackage{amsmath, amsfonts, amssymb, graphicx, multirow, multicol}
+\usepackage[table]{xcolor}
+\definecolor{lightgray}{gray}{0.9}
+\graphicspath{ {C:/Users/swu18/Documents/} }
+
+\begin{document}
+\begin{flushleft}
+\large{Stephanie Wu}
+\end{flushleft}
+\begin{center}
+\large\textbf{Rate Parameter Calculation\\
+October 9, 2018\\}
+\end{center}
+
+\section{$T|Z=0 \sim Exp(\lambda_t)$}
+\begin{align*}
+\frac{n_p}{N_p} &= P(T \leqslant C, T \leqslant \tau_\mathrm{max} | Z=0)\\
+&= P(T \leqslant \mathrm{min}(C, \tau_\mathrm{max}) | Z=0) \\
+&= \int_0^\infty P(T \leqslant \mathrm{min}(c, \tau_{max}) | Z=0) P(C=c) dc\\
+&= \int_0^{\tau_\mathrm{max}} P(T \leqslant c | Z=0) f_c(c)dc +  \int_{\tau_{\mathrm{max}}}^\infty P(T \leqslant \tau_{max}| Z=0) f_c (c) dc\\
+&= 1) + 2)\\
+1) &= \int_0^{\tau_{\mathrm{max}}} \big( 1 - \exp(-\lambda_t * c)\big) \big(\lambda_c \exp(-\lambda_c * c)\big)dc\\
+&= \int_0^{\tau_{\mathrm{max}}} \Big( \lambda_c \exp(-\lambda_c * c) - \lambda_c \exp(-c(\lambda_t + \lambda_c)) \Big) dc\\
+&= \left[ \frac{\lambda_c}{-\lambda_c} \exp(-\lambda_c * c)\right]_0^{\tau_\mathrm{max}} - \left[\frac{\lambda_c}{-(\lambda_t + \lambda_c)} \exp(-(\lambda_t + \lambda_c )*c)\right]_0^{\tau_\mathrm{max}}\\
+&= -\exp(-\lambda_c * \tau_\mathrm{max}) + \exp(0) + \Big(\frac{\lambda_c}{\lambda_t + \lambda_c}\Big)\Big(\exp(-(\lambda_t+\lambda_c)*\tau_\mathrm{max}) - \exp(0)\Big)\\
+&= 1 - \exp(-\lambda_c * \tau_\mathrm{max}) - \frac{\lambda_c}{\lambda_t + \lambda_c} + \Big(\frac{\lambda_c}{\lambda_t + \lambda_c}\Big)\Big(\exp(-(\lambda_t+\lambda_c)*\tau_\mathrm{max})\Big)\\
+2) &=  P(T \leqslant \tau_{max}| Z=0) \int_{\tau_{\mathrm{max}}}^\infty f_c(c)dc\\
+&= \Big(1-\exp(-\lambda_t*\tau_\mathrm{max})\Big)\Big(\exp(-\lambda_c*\tau_\mathrm{max})\Big)\\
+&= \exp(-\lambda_c*\tau_\mathrm{max}) - \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\\
+\therefore \frac{n_p}{N_p} &= 1) + 2)\\
+&= 1 - \exp(-\lambda_c * \tau_\mathrm{max}) - \frac{\lambda_c}{\lambda_t + \lambda_c} + \Big(\frac{\lambda_c}{\lambda_t + \lambda_c}\Big)\Big(\exp(-(\lambda_t+\lambda_c)*\tau_\mathrm{max})\Big) \\
+&\quad + \exp(-\lambda_c*\tau_\mathrm{max}) - \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\\
+&= 1 - \frac{\lambda_c}{\lambda_t + \lambda_c} + \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\big( \frac{\lambda_c}{\lambda_t + \lambda_c} - 1\big)\\
+&= \frac{\lambda_t}{\lambda_t + \lambda_c} +  \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\Big(\frac{-\lambda_t}{\lambda_t + \lambda_c}\Big)\\
+&= \frac{\lambda_t}{\lambda_t + \lambda_c} \Big( 1 -  \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\Big)\\
+\end{align*}
+
+\section{$C|Z=0 \sim Exp(\lambda_c)$}
+\begin{align*}
+0.1 &= P(C \leqslant T, C \leqslant \tau_\mathrm{max} | Z=0)\\
+&= P(C \leqslant \mathrm{min}(T, \tau_\mathrm{max}) | Z=0) \\
+&= \int_0^\infty P(C \leqslant \mathrm{min}(c, \tau_{max}) | Z=0) P(T=t) dt\\
+&= \int_0^{\tau_\mathrm{max}} P(C \leqslant t | Z=0) P(T=t) dt +  P(C \leqslant \tau_{max}| Z=0) \int_{\tau_{\mathrm{max}}}^\infty P(T=t)dt\\
+&= 1) + 2)\\
+1) &= \int_0^{\tau_{\mathrm{max}}} \big( 1 - \exp(-\lambda_c * t)\big) \big(\lambda_t \exp(-\lambda_t * t)\big)dt\\
+&= \int_0^{\tau_{\mathrm{max}}} \Big( \lambda_t \exp(-\lambda_t * t) - \lambda_t \exp(-(\lambda_t + \lambda_c)*t) \Big) dt\\
+&= \left[ \frac{\lambda_t}{-\lambda_t} \exp(-\lambda_t * t)\right]_0^{\tau_\mathrm{max}} - \left[\frac{\lambda_t}{-(\lambda_t + \lambda_c)} \exp(-(\lambda_t + \lambda_c )*t)\right]_0^{\tau_\mathrm{max}}\\
+&= -\exp(-\lambda_t * \tau_\mathrm{max}) + 1+ \Big(\frac{\lambda_t}{\lambda_t + \lambda_c}\Big)\Big(\exp(-(\lambda_t+\lambda_c)*\tau_\mathrm{max}) - \frac{\lambda_t}{\lambda_t + \lambda_c}\\
+2) &= \Big(1-\exp(-\lambda_c*\tau_\mathrm{max})\Big)\Big(\exp(-\lambda_t*\tau_\mathrm{max})\Big)\\
+&= \exp(-\lambda_t*\tau_\mathrm{max}) - \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\\
+\therefore 0.1 &= 1) + 2)\\
+&=  -\exp(-\lambda_t * \tau_\mathrm{max}) + 1+ \Big(\frac{\lambda_t}{\lambda_t + \lambda_c}\Big)\Big(\exp(-(\lambda_t+\lambda_c)*\tau_\mathrm{max}) - \frac{\lambda_t}{\lambda_t + \lambda_c}\\
+&\quad + \exp(-\lambda_t*\tau_\mathrm{max}) - \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\\
+&= 1 - \frac{\lambda_t}{\lambda_t + \lambda_c} + \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\big( \frac{\lambda_t}{\lambda_t + \lambda_c} - 1\big)\\
+&= \frac{\lambda_c}{\lambda_t + \lambda_c} +  \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\Big(\frac{-\lambda_c}{\lambda_t + \lambda_c}\Big)\\
+&= \frac{\lambda_c}{\lambda_t + \lambda_c} \Big( 1 - \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\Big)\\
+\end{align*}
+
+\section{System of equations}
+\begin{align*}
+&\frac{n_p}{N_p} = \frac{\lambda_t}{\lambda_t + \lambda_c} \Big( 1 -  \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\Big)\\
+&\iff \frac{n_p}{N_p}*\frac{\lambda_t + \lambda_c}{\lambda_t} = \Big( 1 -  \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\Big)\\
+\text{Plug into: } &0.1 = \frac{\lambda_c}{\lambda_t + \lambda_c} \Big( 1 - \exp\big(-(\lambda_t + \lambda_c)*\tau_\mathrm{max}\big)\Big)\\
+&\iff 0.1 = \frac{\lambda_c}{\lambda_t + \lambda_c} *  \frac{n_p}{N_p}*\frac{\lambda_t + \lambda_c}{\lambda_t}\\
+&\iff 0.1*\frac{N_p}{n_p} = \frac{\lambda_c}{\lambda_t}\\
+&\iff  0.1*\frac{N_p}{n_p}*\lambda_t = \lambda_c\\
+\text{Plugging } \lambda_c \text{ in, we have: } &0.1 = \frac{0.1*\frac{N_p}{n_p}*\lambda_t}{\lambda_t + 0.1*\frac{N_p}{n_p}*\lambda_t}*\Big( 1 - \exp\big(-(\lambda_t + 0.1*\frac{N_p}{n_p}*\lambda_t)*\tau_\mathrm{max}\big)\Big)\\
+&\iff 0.1 = \frac{0.1*\frac{N_p}{n_p}}{1 + 0.1*\frac{N_p}{n_p}}*\Big( 1 - \exp\big(-\lambda_t*\tau_\mathrm{max}(1 + 0.1*\frac{N_p}{n_p})\big)\Big)\\
+&\iff \frac{0.1(1 + 0.1*\frac{N_p}{n_p})}{0.1*\frac{N_p}{n_p}} = 1 - \exp\big(-\lambda_t*\tau_\mathrm{max}(1 + 0.1*\frac{N_p}{n_p})\big)\\
+&\iff 1 - \big(1 + 0.1*\frac{N_p}{n_p})(\frac{n_p}{N_p})\big) = \exp\big(-\lambda_t*\tau_\mathrm{max}(1 + 0.1*\frac{N_p}{n_p})\big)\\
+&\iff log[1 - \big(1 + 0.1*\frac{N_p}{n_p})(\frac{n_p}{N_p})\big)] = -\lambda_t*\tau_\mathrm{max}(1 + 0.1*\frac{N_p}{n_p})\\
+&\iff \frac{ log[1 - \big(1 + 0.1*\frac{N_p}{n_p})(\frac{n_p}{N_p})\big)]}{-\tau_\mathrm{max}(1 + 0.1*\frac{N_p}{n_p})} = \lambda_t\\
+\text{Thus, } \lambda_c &=  0.1*\frac{N_p}{n_p}*\lambda_t \quad \text{ and }\\
+\lambda_t &= \frac{ log[1 - \big(1 + 0.1*\frac{N_p}{n_p})(\frac{n_p}{N_p})\big)]}{-\tau_\mathrm{max}(1 + 0.1*\frac{N_p}{n_p})}\\
+\end{align*}
+\end{document}
+
