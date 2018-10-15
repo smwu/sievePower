@@ -1,0 +1,151 @@
+---
+title: "AMP Mark-Specific Prevention Efficacy Simulations"
+author: "Stephanie Wu"
+date: "Oct 15, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+source("T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP/sievePower/markDensSim.R")
+library(survival)
+
+# Calculation of power for the 24 scenarios: 
+# (AMP-B, AMP-C, pooled) x (IC50, IC80) x (0.45, 0.6, 0.75, 0.9)
+
+dataFile <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
+```
+
+##AMP-B IC50 Pooled Comparisons
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+# AMP-B
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+
+# IC50
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVraw <- 1/mean(subB$ic50.geometric.mean.imputed, na.rm = TRUE)
+
+Np = 900
+np = 34
+taumax = 80  # weeks
+markVE = c(0.45, 0.6, 0.75, 0.9) 
+
+par(mfrow=c(2,2))
+for (i in 1:length(markVE)) {
+  result <- simulOne(Np, np, lambdaVraw, markVE[i], taumax)  
+  simulPlotDistHazVE(result, nSites=NULL, 
+                       xlab="IC50", raw = TRUE,
+                       ylab="Prevention Efficacy against \nHIV Infection (%)",
+                       title = paste0("Prevention Efficacy by IC50 for SubType B \nwith Ceiling VE = ", markVE[i]))
+}
+
+par(mfrow=c(2,2))
+for (i in 1:length(markVE)) {
+  result <- simulOne(Np, np, lambdaVraw, markVE[i], taumax)  
+  simulPlotDistHazVE(result, nSites=NULL, 
+                       xlab="log10(IC50)", raw = FALSE,
+                       ylab="Prevention Efficacy against \nHIV Infection (%)",
+                       title = paste0("Prevention Efficacy by IC50 for SubType B \nwith Ceiling VE = ", markVE[i]))
+}
+    
+```
+
+##AMP-B IC80
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+# IC80
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVraw <- 1/mean(subB$ic80.geometric.mean.imputed, na.rm = TRUE)
+
+Np = 900
+np = 34
+taumax = 80  # weeks
+markVE <- c(0.45, 0.6, 0.75, 0.9)
+
+par(mfrow=c(2,2))
+for (i in 1:length(markVE)) {
+  result <- simulOne(Np, np, lambdaVraw, markVE[i], taumax)  
+  simulPlotDistHazVE(result, nSites=NULL, 
+                       xlab="IC50", raw = TRUE,
+                       ylab="Prevention Efficacy against \nHIV Infection (%)",
+                       title = paste0("Prevention Efficacy by IC80 for SubType B \nwith Ceiling VE = ", markVE[i]))
+}
+
+par(mfrow=c(2,2))
+for (i in 1:length(markVE)) {
+  result <- simulOne(Np, np, lambdaVraw, markVE[i], taumax)  
+  simulPlotDistHazVE(result, nSites=NULL, 
+                       xlab="log10(IC50)", raw = FALSE,
+                       ylab="Prevention Efficacy against \nHIV Infection (%)",
+                       title = paste0("Prevention Efficacy by IC80 for SubType B \nwith Ceiling VE = ", markVE[i]))
+}  
+```
+
+##Pooled IC50 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+# Pooled
+pooled <- read.csv(file.path(dataFile, "catnap_vrc01_neut_all.csv"))
+
+# IC50
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVraw <- 1/mean(pooled$ic50.geometric.mean.imputed, na.rm = TRUE)
+
+Np = 1534
+np = 68
+taumax = 80  # weeks
+markVE = c(0.45, 0.6, 0.75, 0.9) 
+
+par(mfrow=c(2,2))
+for (i in 1:length(markVE)) {
+  result <- simulOne(Np, np, lambdaVraw, markVE[i], taumax)  
+  simulPlotDistHazVE(result, nSites=NULL, 
+                       xlab="IC50", raw = TRUE,
+                       ylab="Prevention Efficacy against \nHIV Infection (%)",
+                       title = paste0("Prevention Efficacy by IC50 for SubType B \nwith Ceiling VE = ", markVE[i]))
+}
+
+par(mfrow=c(2,2))
+for (i in 1:length(markVE)) {
+  result <- simulOne(Np, np, lambdaVraw, markVE[i], taumax)  
+  simulPlotDistHazVE(result, nSites=NULL, 
+                       xlab="log10(IC50)", raw = FALSE,
+                       ylab="Prevention Efficacy against \nHIV Infection (%)",
+                       title = paste0("Prevention Efficacy by IC50 for SubType B \nwith Ceiling VE = ", markVE[i]))
+}
+```
+
+##Pooled IC80 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+# IC80
+
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVraw <- 1/mean(pooled$ic80.geometric.mean.imputed, na.rm = TRUE)
+
+Np = 1534
+np = 68
+taumax = 80  # weeks
+markVE <- c(0.45, 0.6, 0.75, 0.9)
+
+par(mfrow=c(2,2))
+for (i in 1:length(markVE)) {
+  result <- simulOne(Np, np, lambdaVraw, markVE[i], taumax)  
+  simulPlotDistHazVE(result, nSites=NULL, 
+                       xlab="IC50", raw = TRUE,
+                       ylab="Prevention Efficacy against \nHIV Infection (%)",
+                       title = paste0("Prevention Efficacy by IC80 for SubType B \nwith Ceiling VE = ", markVE[i]))
+}
+
+par(mfrow=c(2,2))
+for (i in 1:length(markVE)) {
+  result <- simulOne(Np, np, lambdaVraw, markVE[i], taumax)  
+  simulPlotDistHazVE(result, nSites=NULL, 
+                       xlab="log10(IC50)", raw = FALSE,
+                       ylab="Prevention Efficacy against \nHIV Infection (%)",
+                       title = paste0("Prevention Efficacy by IC80 for SubType B \nwith Ceiling VE = ", markVE[i]))
+} 
+```
