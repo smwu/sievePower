@@ -1,0 +1,42 @@
+\documentclass[10pt, letter]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in, footskip=0.25in]{geometry}
+\usepackage{amsmath, amsfonts, amssymb, graphicx, multirow, multicol}
+\usepackage[table]{xcolor}
+\definecolor{lightgray}{gray}{0.9}
+\graphicspath{ {C:/Users/swu18/Documents/} }
+
+\begin{document}
+\begin{flushleft}
+\large{Stephanie Wu}
+\end{flushleft}
+\begin{center}
+\large\textbf{Rate Parameter Calculation\\
+October 15, 2018\\}
+\end{center}
+
+Solve system of equations:\\ 
+$1) \exp(\alpha + \beta*0.5 + \gamma) = 1 - VE(v)$\\
+$2) \exp(\alpha + \beta*50 + \gamma) = 1$\\
+\begin{align*}
+1)/ 2) &= \exp(\beta(-45.5)) = log(1-VE(v))\\
+&\iff \beta = \frac{log(1-VE(v))}{-45.5}\\
+\\
+1)*2) &= \exp\Big(2\alpha + 50.5\beta + 2\gamma\Big) = 1-VE(v)\\
+&\iff 2(\alpha + \gamma) + 50.5\beta = log(1-VE(v))\\
+&\iff \phi = \alpha + \gamma = \frac{log(1-VE(v)) - 50.5\beta}{2}\\
+\text{To find } \alpha \text{ , solve } &\int_0^\infty f_v(v|z=0)\exp(\alpha+\beta*v)dv = 1\\
+&\iff \int_0^\infty \lambda_v* \exp(-\lambda_v*v)*\exp(\alpha + \beta*v)dv = 1\\
+&\iff \exp(\alpha)*\lambda_v \int_0^\infty\exp(-(\lambda_v - \beta)*v)dv = 1\\
+&\iff \exp(\alpha)*\lambda_v (-\frac{1}{\lambda_v - \beta})(0 - 1) = 1\\
+&\iff \frac{\exp(\alpha)*\lambda_v}{\lambda_v - \beta} = 1\\
+&\iff \exp(\alpha)*\lambda_v = \lambda_v - \beta\\
+&\iff \exp(\alpha) = 1 - \frac{\beta}{\lambda_v}\\
+&\iff \alpha = log(1 - \frac{\beta}{\lambda_v})\\
+&\implies \gamma = \phi - \alpha\\
+\text{Therefore, } \beta &= \frac{log(1-VE(v))}{-45.5}\\
+\phi &= \frac{log(1-VE(v)) - 50.5\beta}{2}\\
+\alpha &= log(1 - \frac{\beta}{\lambda_v})\\
+\gamma &= \phi - \alpha\\
+\end{align*}
+\end{document}
