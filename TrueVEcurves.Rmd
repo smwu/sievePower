@@ -9,9 +9,6 @@ output:
 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-source("T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP/sievePower/markDensSim.R")
-library(survival)
-
 # Calculation of power for the 24 scenarios: 
 # (AMP-B, AMP-C, pooled) x (IC50, IC80) x (0.45, 0.6, 0.75, 0.9)
 
@@ -39,7 +36,7 @@ VE <- matrix(nrow = length(distGrid), ncol=3)
 markVE = c(0.45, 0.6, 0.75, 0.9) 
 ```
 
-## Raw IC50 
+## Raw IC50 Comparing AMP-B, AMP-C, and Pooled
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 #IC50
@@ -83,7 +80,7 @@ for (i in 1:length(markVE)) {
     
 ```
 
-## Raw IC80
+## Raw IC80 Comparing AMP-B, AMP-C, and Pooled
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 # IC80
@@ -126,7 +123,7 @@ for (i in 1:length(markVE)) {
 }
 ```
 
-##Scaled IC50 
+## Scaled IC50 Comparing AMP-B, AMP-C, and Pooled
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 # IC50
@@ -169,7 +166,7 @@ for (i in 1:length(markVE)) {
 }
 ```
 
-## Scaled IC80 
+## Scaled IC80 Comparing AMP-B, AMP-C, and Pooled
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 # IC80
