@@ -1,44 +1,276 @@
 ---
 title: "AMP Mark-Specific Prevention Efficacy Curves"
 author: "Stephanie Wu"
-date: "Oct 15, 2018"
+date: "Oct 18, 2018"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(reshape2)
+
 # Calculation of power for the 24 scenarios: 
 # (AMP-B, AMP-C, pooled) x (IC50, IC80) x (0.45, 0.6, 0.75, 0.9)
 
 dataFile <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
 # function for calculation vaccine efficacy
 ve <- function(v, a, b, g){ 1-exp(a+b*v+g) }
+
+f0 <- function(v, lambda){
+  dexp(10^v)*log(10)*(10^v)
+}
+
+f1 <- function(v, alpha, beta, lambda){
+  f0(v, lambda)*exp(alpha + beta*v)
+}
+
+intf1 <- function(alpha, beta, lambda){
+  integrate(f1, lower=-100, upper=100, alpha=alpha, beta=beta, lambda=lambda)$value - 1
+}
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-# initiate vectors for the three trial scenarios: B, C, and pooled
-lambdaVraw <- numeric(3)
-lambdaV <- numeric(3)
-beta <- numeric(3)
-alpha <- numeric(3)
-phi <- numeric(3)
-gamma <- numeric(3)
+# # initiate vectors for the three trial scenarios: B, C, and pooled
+# lambdaVraw <- numeric(3)
+# lambdaV <- numeric(3)
+# beta <- numeric(3)
+# alpha <- numeric(3)
+# phi <- numeric(3)
+# gamma <- numeric(3)
 
 # initiate mark grid and vaccine efficacy matrix
-distGridRaw <- seq(0.5, 50, length = 100)
-distGrid <- seq(log10(0.5), log10(50), length = 100)
+distGridRaw <- seq(0.00076, 50, length = 100)
+distGrid <- seq(log10(0.00076), log10(50), length = 100)
 VEraw <- matrix(nrow = length(distGrid), ncol = 3)
 VE <- matrix(nrow = length(distGrid), ncol=3)
 
 # different cutoff scenarios for mark VE
-markVE = c(0.45, 0.6, 0.75, 0.9) 
+markVE = c(0, 0.3, 0.5, 0.7, 0.9) 
 ```
 
-## Raw IC50 Comparing AMP-B, AMP-C, and Pooled
+## Raw IC50 Comparing VE Cutoff Scenarios
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+beta <- numeric(5)
+alpha <- numeric(5)
+phi <- numeric(5)
+gamma <- numeric(5)
+VEraw <- matrix(nrow=length(distGridRaw), ncol=5)
+VE <- matrix(nrow=length(distGridRaw), ncol=5)
+truePE <- numeric(5)
+```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+# IC50
+
+# AMP-B
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVrawB <- 1/mean(subB$ic50.geometric.mean.imputed, na.rm = TRUE)
+
+par(mfrow=c(1,1))
+for (i in 1:length(markVE)) {
+  beta[i] <- -log(1-markVE[i])/49.7
+  alpha[i] <- log(1 - beta[i]/lambdaVrawB)  
+  phi[i] <- (log(1 - markVE[i]) - 50.3*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  VEraw[,i] <- ve(distGridRaw, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+# plot graph using ggplot
+data <- data.frame(cbind(distGridRaw, VEraw[,1], VEraw[,2], VEraw[,3], VEraw[,4], VEraw[,5]))
+colnames(data) <- c("distGridRaw", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGridRaw", variable.name = "VE_Cutoff", value.name = "VEraw")
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGridRaw, y=VEraw, color=VE_Cutoff)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=c(0.00076, 10, 20, 30, 40, 50), labels = c(0.00076, 10, 20, 30, 40, 50)) + 
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC50") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("Prevention Efficacy by IC50") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=25), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=15), legend.title = element_text(size=15), 
+        legend.position = c(0.85,0.8)) 
+
+  # # plot graph using plot()
+  # xlab="IC50"
+  # ylab="Prevention Efficacy against \nHIV Infection (%)"
+  # title = "Prevention Efficacy by IC50"
+  # 
+  # plot(distGridRaw, VEraw[,1], ylim = c(0,1.1), type = "n", xlab="", ylab="", bty="l", main=title)
+  # mtext(xlab, side=1, line=2)
+  # mtext(ylab, side=2, line=2.15, las=3)
+  # abline(h=0, col="gray30", lty="dotted", lwd=2)
+  # lines(distGridRaw, VEraw[,1], col = "orange", lwd=2)
+  # lines(distGridRaw, VEraw[,2], col = "red", lwd=2)
+  # lines(distGridRaw, VEraw[,3], col = "blue", lwd=2)
+  # lines(distGridRaw, VEraw[,4], col = "forestgreen", lwd=2)
+  # legend("topright", legend = c("VE Cutoff = 0.45","VE Cutoff = 0.6","VE Cutoff = 0.75", "VE Cutoff = 0.9"), col = c("orange", "red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
+    
+```
+
+## Raw IC80 Comparing VE Cutoff Scenarios
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+# IC80
+
+# AMP-B
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVrawB <- 1/mean(subB$ic80.geometric.mean.imputed, na.rm = TRUE)
+
+par(mfrow=c(1,1))
+for (i in 1:length(markVE)) {
+  beta[i] <- -log(1-markVE[i])/49.7
+  alpha[i] <- log(1 - beta[i]/lambdaVrawB)  
+  phi[i] <- (log(1 - markVE[i]) - 50.3*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  VEraw[,i] <- ve(distGridRaw, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+# plot graph using ggplot
+data <- data.frame(cbind(distGridRaw, VEraw[,1], VEraw[,2], VEraw[,3], VEraw[,4], VEraw[,5]))
+colnames(data) <- c("distGridRaw", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGridRaw", variable.name = "VE_Cutoff", value.name = "VEraw")
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGridRaw, y=VEraw, color=VE_Cutoff)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=c(0.00076, 10, 20, 30, 40, 50), labels = c(0.00076, 10, 20, 30, 40, 50)) + 
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC80") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("Prevention Efficacy by IC80") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=25), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=15), legend.title = element_text(size=15), 
+        legend.position = c(0.85,0.8)) 
+
+  # xlab="IC50"
+  # ylab="Prevention Efficacy against \nHIV Infection (%)"
+  # title = "Prevention Efficacy by IC80"
+  # 
+  # plot(distGridRaw, VEraw[,1], ylim = c(0,1.1), type = "n", xlab="", ylab="", bty="l", main=title)
+  # mtext(xlab, side=1, line=2)
+  # mtext(ylab, side=2, line=2.15, las=3)
+  # abline(h=0, col="gray30", lty="dotted", lwd=2)
+  # lines(distGridRaw, VEraw[,1], col = "orange", lwd=2)
+  # lines(distGridRaw, VEraw[,2], col = "red", lwd=2)
+  # lines(distGridRaw, VEraw[,3], col = "blue", lwd=2)
+  # lines(distGridRaw, VEraw[,4], col = "forestgreen", lwd=2)
+  # legend("topright", legend = c("VE Cutoff = 0.45","VE Cutoff = 0.6","VE Cutoff = 0.75", "VE Cutoff = 0.9"), col = c("orange", "red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
+
+```
+
+## Scaled IC50 Comparing VE Cutoff Scenarios
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+# AMP-B
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+
+# IC50
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVrawB <- 1/mean(subB$ic50.geometric.mean.imputed, na.rm = TRUE)
+
+par(mfrow=c(1,1))
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-10,10), beta=beta[i], lambda=lambdaVrawB)$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  VE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+data <- data.frame(cbind(distGrid, VE[,1], VE[,2], VE[,3], VE[,4], VE[,5]))
+colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "VE")
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGrid, y=VE, color=VE_Cutoff)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC50") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("Prevention Efficacy by IC50") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=25), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=15), legend.title = element_text(size=15), 
+        legend.position = c(0.85,0.8))
+
+
+  # xlab="IC50"
+  # ylab="Prevention Efficacy against \nHIV Infection (%)"
+  # title = "Prevention Efficacy by IC50"
+  # 
+  # grid <- log10(c(0.00076, 0.1, 0.5, 1, 5, 10, 50))
+  # plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xaxt = "n", xlab="", ylab="", bty="l", main=title)
+  # axis(side = 1, at = grid, labels = c(0.00076, 0.1, 0.5, 1, 5, 10, 50))
+  # mtext(xlab, side=1, line=2)
+  # mtext(ylab, side=2, line=2.15, las=3)
+  # abline(h=0, col="gray30", lty="dotted", lwd=2)
+  # lines(distGrid, VE[,1], col = "orange", lwd=2)
+  # lines(distGrid, VE[,2], col = "red", lwd=2)
+  # lines(distGrid, VE[,3], col = "blue", lwd=2)
+  # lines(distGrid, VE[,4], col = "forestgreen", lwd=2)
+  # legend("topright", legend = c("VE Cutoff = 0.45","VE Cutoff = 0.6","VE Cutoff = 0.75", "VE Cutoff = 0.9"), col = c("orange", "red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
+
+```
+
+## Scaled IC80 Comparing VE Cutoff Scenarios
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+# AMP-B
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+# IC80
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVrawB <- 1/mean(subB$ic80.geometric.mean.imputed, na.rm = TRUE)
+
+par(mfrow=c(1,1))
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-10,10), beta=beta[i], lambda=lambdaVrawB)$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  VE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+data <- data.frame(cbind(distGrid, VE[,1], VE[,2], VE[,3], VE[,4], VE[,5]))
+colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "VE")
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGrid, y=VE, color=VE_Cutoff)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC80") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("Prevention Efficacy by IC80") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=25), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=15), legend.title = element_text(size=15), 
+        legend.position = c(0.85,0.8))
+
+  # xlab="IC80"
+  # ylab="Prevention Efficacy against \nHIV Infection (%)"
+  # title = "Prevention Efficacy by IC80"
+  # 
+  # grid <- log10(c(0.00076, 0.1, 0.5, 1, 5, 10, 50))
+  # plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xaxt = "n", xlab="", ylab="", bty="l", main=title)
+  # axis(side = 1, at = grid, labels = c(0.00076, 0.1, 0.5, 1, 5, 10, 50))
+  # mtext(xlab, side=1, line=2)
+  # mtext(ylab, side=2, line=2.15, las=3)
+  # abline(h=0, col="gray30", lty="dotted", lwd=2)
+  # lines(distGrid, VE[,1], col = "orange", lwd=2)
+  # lines(distGrid, VE[,2], col = "red", lwd=2)
+  # lines(distGrid, VE[,3], col = "blue", lwd=2)
+  # lines(distGrid, VE[,4], col = "forestgreen", lwd=2)
+  # legend("topright", legend = c("VE Cutoff = 0.45","VE Cutoff = 0.6","VE Cutoff = 0.75", "VE Cutoff = 0.9"), col = c("orange", "red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
+
+```
+
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+## Raw IC50 Comparing AMP-B, AMP-C, and Pooled
+
 #IC50
 
 # AMP-B
@@ -57,9 +289,9 @@ lambdaVraw[3] <- 1/mean(pooled$ic50.geometric.mean.imputed, na.rm = TRUE)
 par(mfrow=c(2,2))
 for (i in 1:length(markVE)) {
   for (j in 1:length(lambdaVraw)) {
-    beta[j] <- -log(1-markVE[i])/45.5
+    beta[j] <- -log(1-markVE[i])/49.7
     alpha[j] <- log(1 - beta[j]/lambdaVraw[j])  
-    phi[j] <- (log(1 - markVE[i]) - 50.5*beta[j])/2  
+    phi[j] <- (log(1 - markVE[i]) - 50.3*beta[j])/2  
     gamma[j] <- phi[j] - alpha[j] 
     VEraw[,j] <- ve(distGridRaw, alpha[j], beta[j], gamma[j])
   }
@@ -80,9 +312,9 @@ for (i in 1:length(markVE)) {
     
 ```
 
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 ## Raw IC80 Comparing AMP-B, AMP-C, and Pooled
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 # IC80
 
 # AMP-B
@@ -101,9 +333,9 @@ lambdaVraw[3] <- 1/mean(pooled$ic80.geometric.mean.imputed, na.rm = TRUE)
 par(mfrow=c(2,2))
 for (i in 1:length(markVE)) {
   for (j in 1:length(lambdaVraw)) {
-    beta[j] <- -log(1-markVE[i])/45.5
+    beta[j] <- -log(1-markVE[i])/49.7
     alpha[j] <- log(1 - beta[j]/lambdaVraw[j])  
-    phi[j] <- (log(1 - markVE[i]) - 50.5*beta[j])/2  
+    phi[j] <- (log(1 - markVE[i]) - 50.3*beta[j])/2  
     gamma[j] <- phi[j] - alpha[j] 
     VEraw[,j] <- ve(distGridRaw, alpha[j], beta[j], gamma[j])
   }
@@ -123,9 +355,9 @@ for (i in 1:length(markVE)) {
 }
 ```
 
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 ## Scaled IC50 Comparing AMP-B, AMP-C, and Pooled
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 # IC50
 
 # AMP-B
@@ -144,31 +376,34 @@ lambdaVraw[3] <- 1/mean(pooled$ic50.geometric.mean.imputed, na.rm = TRUE)
 par(mfrow=c(2,2))
 for (i in 1:length(markVE)) {
     for (j in 1:length(lambdaVraw)) {
-    beta[j] <- -log(1-markVE[i])/45.5
+    beta[j] <- -log(1-markVE[i])/49.7
     alpha[j] <- log(1 - beta[j]/lambdaVraw[j])  
-    phi[j] <- (log(1 - markVE[i]) - 50.5*beta[j])/2  
+    phi[j] <- (log(1 - markVE[i]) - 50.3*beta[j])/2  
     gamma[j] <- phi[j] - alpha[j] 
     VE[,j] <- ve(distGrid, alpha[j], beta[j], gamma[j])
   }
   
-  xlab=bquote(log[10](IC50))
+  xlab="IC50"
   ylab="Prevention Efficacy against \nHIV Infection (%)"
   title = paste0("Prevention Efficacy by IC50 for SubType B \nwith Ceiling VE = ", markVE[i])
   
-  plot(distGridRaw, VE[,1], ylim = c(0,1.1), type = "n", xlab="", ylab="", bty="l", main=title)
-  mtext(xlab, side=1, line=2)
+  grid <- log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50))
+  plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xaxt = "n", xlab="", ylab="", bty="l", main=title)
+  axis(side = 1, at = grid, labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50))
+  # axis(side = 1, at = log10(0.3), labels = 0.3)
   mtext(ylab, side=2, line=2.15, las=3)
   abline(h=0, col="gray30", lty="dotted", lwd=2)
-  lines(distGridRaw, VE[,1], col = "red", lwd=2)
-  lines(distGridRaw, VE[,2], col = "blue", lwd=2)
-  lines(distGridRaw, VE[,3], col = "forestgreen", lwd=2)
+  lines(distGrid, VE[,1], col = "red", lwd=2)
+  lines(distGrid, VE[,2], col = "blue", lwd=2)
+  lines(distGrid, VE[,3], col = "forestgreen", lwd=2)
   legend("bottomright", legend = c("AMP-B","AMP-C","AMP-Pooled"), col = c("red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
 }
 ```
 
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 ## Scaled IC80 Comparing AMP-B, AMP-C, and Pooled
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+
 # IC80
 
 # AMP-B
@@ -187,110 +422,32 @@ lambdaVraw[3] <- 1/mean(pooled$ic80.geometric.mean.imputed, na.rm = TRUE)
 par(mfrow=c(2,2))
 for (i in 1:length(markVE)) {
     for (j in 1:length(lambdaVraw)) {
-    beta[j] <- -log(1-markVE[i])/45.5
+    beta[j] <- -log(1-markVE[i])/49.7
     alpha[j] <- log(1 - beta[j]/lambdaVraw[j])  
-    phi[j] <- (log(1 - markVE[i]) - 50.5*beta[j])/2  
+    phi[j] <- (log(1 - markVE[i]) - 50.3*beta[j])/2  
     gamma[j] <- phi[j] - alpha[j] 
     VE[,j] <- ve(distGrid, alpha[j], beta[j], gamma[j])
   }
   
-  xlab=bquote(log[10](IC80))
+  xlab="IC80"
   ylab="Prevention Efficacy against \nHIV Infection (%)"
   title = paste0("Prevention Efficacy by IC80 for SubType B \nwith Ceiling VE = ", markVE[i])
   
-  plot(distGridRaw, VE[,1], ylim = c(0,1.1), type = "n", xlab="", ylab="", bty="l", main=title)
-  mtext(xlab, side=1, line=2)
+  grid <- log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50))
+  plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xaxt = "n", xlab="", ylab="", bty="l", main=title)
+  axis(side = 1, at = grid, labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50))
   mtext(ylab, side=2, line=2.15, las=3)
   abline(h=0, col="gray30", lty="dotted", lwd=2)
-  lines(distGridRaw, VE[,1], col = "red", lwd=2)
-  lines(distGridRaw, VE[,2], col = "blue", lwd=2)
-  lines(distGridRaw, VE[,3], col = "forestgreen", lwd=2)
+  lines(distGrid, VE[,1], col = "red", lwd=2)
+  lines(distGrid, VE[,2], col = "blue", lwd=2)
+  lines(distGrid, VE[,3], col = "forestgreen", lwd=2)
   legend("bottomright", legend = c("AMP-B","AMP-C","AMP-Pooled"), col = c("red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
 }
 ```
 
-## Raw IC50 Comparing VE Cutoff Scenarios
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-beta <- numeric(4)
-alpha <- numeric(4)
-phi <- numeric(4)
-gamma <- numeric(4)
-VEraw <- matrix(nrow=length(distGridRaw), ncol=4)
-VE <- matrix(nrow=length(distGridRaw), ncol=4)
-```
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
-# IC50
-
-# AMP-B
-subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
-# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
-lambdaVrawB <- 1/mean(subB$ic50.geometric.mean.imputed, na.rm = TRUE)
-
-par(mfrow=c(1,1))
-for (i in 1:length(markVE)) {
-  beta[i] <- -log(1-markVE[i])/45.5
-  alpha[i] <- log(1 - beta[i]/lambdaVrawB)  
-  phi[i] <- (log(1 - markVE[i]) - 50.5*beta[i])/2  
-  gamma[i] <- phi[i] - alpha[i]
-  VEraw[,i] <- ve(distGridRaw, alpha[i], beta[i], gamma[i])
-  VE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
-}  
-  xlab="IC50"
-  ylab="Prevention Efficacy against \nHIV Infection (%)"
-  title = "Prevention Efficacy by IC50 for SubType B"
-  
-  plot(distGridRaw, VEraw[,1], ylim = c(0,1.1), type = "n", xlab="", ylab="", bty="l", main=title)
-  mtext(xlab, side=1, line=2)
-  mtext(ylab, side=2, line=2.15, las=3)
-  abline(h=0, col="gray30", lty="dotted", lwd=2)
-  lines(distGridRaw, VEraw[,1], col = "orange", lwd=2)
-  lines(distGridRaw, VEraw[,2], col = "red", lwd=2)
-  lines(distGridRaw, VEraw[,3], col = "blue", lwd=2)
-  lines(distGridRaw, VEraw[,4], col = "forestgreen", lwd=2)
-  legend("topright", legend = c("VE Cutoff = 0.45","VE Cutoff = 0.6","VE Cutoff = 0.75", "VE Cutoff = 0.9"), col = c("orange", "red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
-
-    
-```
-
-## Raw IC80 Comparing VE Cutoff Scenarios
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
-# IC80
-
-# AMP-B
-subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
-# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
-lambdaVrawB <- 1/mean(subB$ic80.geometric.mean.imputed, na.rm = TRUE)
-
-par(mfrow=c(1,1))
-for (i in 1:length(markVE)) {
-  beta[i] <- -log(1-markVE[i])/45.5
-  alpha[i] <- log(1 - beta[i]/lambdaVrawB)  
-  phi[i] <- (log(1 - markVE[i]) - 50.5*beta[i])/2  
-  gamma[i] <- phi[i] - alpha[i]
-  VEraw[,i] <- ve(distGridRaw, alpha[i], beta[i], gamma[i])
-  VE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
-}  
-  xlab="IC50"
-  ylab="Prevention Efficacy against \nHIV Infection (%)"
-  title = "Prevention Efficacy by IC80 for SubType B"
-  
-  plot(distGridRaw, VEraw[,1], ylim = c(0,1.1), type = "n", xlab="", ylab="", bty="l", main=title)
-  mtext(xlab, side=1, line=2)
-  mtext(ylab, side=2, line=2.15, las=3)
-  abline(h=0, col="gray30", lty="dotted", lwd=2)
-  lines(distGridRaw, VEraw[,1], col = "orange", lwd=2)
-  lines(distGridRaw, VEraw[,2], col = "red", lwd=2)
-  lines(distGridRaw, VEraw[,3], col = "blue", lwd=2)
-  lines(distGridRaw, VEraw[,4], col = "forestgreen", lwd=2)
-  legend("topright", legend = c("VE Cutoff = 0.45","VE Cutoff = 0.6","VE Cutoff = 0.75", "VE Cutoff = 0.9"), col = c("orange", "red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
-
-```
-
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 ## Scaled IC50 Comparing VE Cutoff Scenarios
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 # IC50
 
 # AMP-B
@@ -300,21 +457,19 @@ lambdaVrawB <- 1/mean(subB$ic50.geometric.mean.imputed, na.rm = TRUE)
 
 par(mfrow=c(1,1))
 for (i in 1:length(markVE)) {
-  beta[i] <- -log(1-markVE[i])/45.5
-  alpha[i] <- log(1 - beta[i]/lambdaVrawB)  
-  phi[i] <- (log(1 - markVE[i]) - 50.5*beta[i])/2  
+  beta[i] <- -log10(1-markVE[i])/49.7
+  alpha[i] <- log10(1 - beta[i]/lambdaVrawB)  
+  phi[i] <- (log10(1 - markVE[i]) - 50.3*beta[i])/2  
   gamma[i] <- phi[i] - alpha[i]
   VE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
 }  
-  xlab=bquote(log[10](IC50))
+  xlab="IC50"
   ylab="Prevention Efficacy against \nHIV Infection (%)"
-  title = bquote("Prevention Efficacy by"~log[10](IC50)~"for SubType B")
+  title = "Prevention Efficacy by IC50"
   
-  plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xlab="", xaxt="n", ylab="", bty="l", main=title)
-  grid <- seq(min(distGrid), max(distGrid), length=6)
-  axis(side=1, at=grid, labels=round(10^grid,3), las=1)
-  mtext(xlab, side=1, line=2)
-  mtext(ylab, side=2, line=2.15, las=3)
+  grid <- log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50))
+  plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xaxt = "n", xlab="", ylab="", bty="l", main=title)
+  axis(side = 1, at = grid, labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50))
   abline(h=0, col="gray30", lty="dotted", lwd=2)
   lines(distGrid, VE[,1], col = "orange", lwd=2)
   lines(distGrid, VE[,2], col = "red", lwd=2)
@@ -324,9 +479,9 @@ for (i in 1:length(markVE)) {
 
 ```
 
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 ## Scaled IC80 Comparing VE Cutoff Scenarios
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
 # AMP-B
 subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
 
@@ -336,90 +491,19 @@ lambdaVrawB <- 1/mean(subB$ic80.geometric.mean.imputed, na.rm = TRUE)
 
 par(mfrow=c(1,1))
 for (i in 1:length(markVE)) {
-  beta[i] <- -log(1-markVE[i])/45.5
+  beta[i] <- -log(1-markVE[i])/49.7
   alpha[i] <- log(1 - beta[i]/lambdaVrawB)  
-  phi[i] <- (log(1 - markVE[i]) - 50.5*beta[i])/2  
+  phi[i] <- (log(1 - markVE[i]) - 50.3*beta[i])/2  
   gamma[i] <- phi[i] - alpha[i]
   VE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
 }  
-  xlab=bquote(log[10](IC80))
+  xlab="IC80"
   ylab="Prevention Efficacy against \nHIV Infection (%)"
-  title = bquote("Prevention Efficacy by"~log[10](IC80)~"for SubType B")
+  title = "Prevention Efficacy by IC80"
   
-  plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xlab="", xaxt="n", ylab="", bty="l", main=title)
-  grid <- seq(min(distGrid), max(distGrid), length=6)
-  axis(side=1, at=grid, labels=round(10^grid,3), las=1)
-  mtext(xlab, side=1, line=2)
-  mtext(ylab, side=2, line=2.15, las=3)
-  abline(h=0, col="gray30", lty="dotted", lwd=2)
-  lines(distGrid, VE[,1], col = "orange", lwd=2)
-  lines(distGrid, VE[,2], col = "red", lwd=2)
-  lines(distGrid, VE[,3], col = "blue", lwd=2)
-  lines(distGrid, VE[,4], col = "forestgreen", lwd=2)
-  legend("topright", legend = c("VE Cutoff = 0.45","VE Cutoff = 0.6","VE Cutoff = 0.75", "VE Cutoff = 0.9"), col = c("orange", "red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
-
-```
-
-## Scaled IC50 Comparing VE Cutoff Scenarios, Using Scaled \(\lambda_V\) and Cutoffs
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
-# AMP-B
-subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
-
-# IC50
-# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
-lambdaVB <- 1/mean(subB$ic50.geometric.mean.imputed.log10, na.rm = TRUE)
-
-par(mfrow=c(1,1))
-for (i in 1:length(markVE)) {
-  beta[i] <- log(1-markVE[i])/log(0.5/50)
-  alpha[i] <- log(1 - beta[i]/lambdaVB)  
-  phi[i] <- (log(1 - markVE[i]) - log(0.5*50)*beta[i])/2  
-  gamma[i] <- phi[i] - alpha[i]
-  VE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
-}  
-  xlab=bquote(log[10](IC50))
-  ylab="Prevention Efficacy against \nHIV Infection (%)"
-  title = bquote("Prevention Efficacy by"~log[10](IC50)~"for SubType B")
-  
-  plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xlab="", xaxt="n", ylab="", bty="l", main=title)
-  grid <- seq(min(distGrid), max(distGrid), length=6)
-  axis(side=1, at=grid, labels=round(10^grid,3), las=1)
-  mtext(xlab, side=1, line=2)
-  mtext(ylab, side=2, line=2.15, las=3)
-  abline(h=0, col="gray30", lty="dotted", lwd=2)
-  lines(distGrid, VE[,1], col = "orange", lwd=2)
-  lines(distGrid, VE[,2], col = "red", lwd=2)
-  lines(distGrid, VE[,3], col = "blue", lwd=2)
-  lines(distGrid, VE[,4], col = "forestgreen", lwd=2)
-  legend("topright", legend = c("VE Cutoff = 0.45","VE Cutoff = 0.6","VE Cutoff = 0.75", "VE Cutoff = 0.9"), col = c("orange", "red","blue","forestgreen"), lwd=2, lty=1, cex=0.9)
-
-```
-
-## Scaled IC80 Comparing VE Cutoff Scenarios, Using Scaled \(\lambda_V\) and Cutoffs
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
-# AMP-B
-subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
-# IC80
-# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
-lambdaVB <- 1/mean(subB$ic80.geometric.mean.imputed.log10, na.rm = TRUE)
-
-par(mfrow=c(1,1))
-for (i in 1:length(markVE)) {
-  beta[i] <- log(1-markVE[i])/log(0.5/50)
-  alpha[i] <- log(1 - beta[i]/lambdaVB)  
-  phi[i] <- (log(1 - markVE[i]) - log(0.5*50)*beta[i])/2  
-  gamma[i] <- phi[i] - alpha[i]
-  VE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
-}  
-  xlab=bquote(log[10](IC80))
-  ylab="Prevention Efficacy against \nHIV Infection (%)"
-  title = bquote("Prevention Efficacy by"~log[10](IC80)~"for SubType B")
-  
-  plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xlab="", xaxt="n", ylab="", bty="l", main=title)
-  grid <- seq(min(distGrid), max(distGrid), length=6)
-  axis(side=1, at=grid, labels=round(10^grid,3), las=1)
+  grid <- log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50))
+  plot(distGrid, VE[,1], ylim = c(0,1.1), type = "n", xaxt = "n", xlab="", ylab="", bty="l", main=title)
+  axis(side = 1, at = grid, labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50))
   mtext(xlab, side=1, line=2)
   mtext(ylab, side=2, line=2.15, las=3)
   abline(h=0, col="gray30", lty="dotted", lwd=2)
