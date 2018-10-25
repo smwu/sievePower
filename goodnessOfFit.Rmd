@@ -1,0 +1,66 @@
+---
+title: "Goodness of Fit"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+dataFile <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
+library(MASS)
+
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+# Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
+lambdaVrawB <- 1/mean(subB$ic50.geometric.mean.imputed, na.rm = TRUE)
+
+ic50data <- subB$ic50.geometric.mean.imputed
+log10ic50data <- subB$ic50.geometric.mean.imputed.log10
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+par(mfrow=c(1,2))
+hist(ic50data, freq=FALSE, breaks=seq(0,100, length=15), main = "Histogram of IC50", xlab = "IC50")
+lower <- floor(qexp(0.001, rate=lambdaVrawB))
+upper <- ceiling(qexp(0.999, rate=lambdaVrawB))
+x <- seq(lower,upper,0.1)
+curve(dexp(x, rate = lambdaVrawB), col="red", add=TRUE)
+
+p <- ppoints(length(ic50data))
+exp.quantiles <- qexp(p, rate = lambdaVrawB)
+plot(sort(exp.quantiles), sort(ic50data), 
+     xlab = "Theoretical Quantiles", 
+     ylab = "Sample Quantiles", main = "Exponential Q-Q Plot")
+abline(0,1, col="blue")
+
+par(mfrow=c(1,2))
+hist(log10ic50data, freq=FALSE, breaks=seq(-2,2, length=15), main = "Histogram of log10(IC50)", xlab = "log10(IC50)")
+lower <- floor(qnorm(0.001, mean=mean(log10ic50data), sd=sd(log10ic50data)))
+upper <- ceiling(qnorm(0.999, mean = mean(log10ic50data), sd=sd(log10ic50data)))
+x <- seq(lower,upper,0.1)
+curve(dnorm(x, mean = mean(log10ic50data), sd = sd(log10ic50data)), col="red", add=TRUE)
+
+qqnorm(subB$ic50.geometric.mean.imputed.log10)
+qqline(subB$ic50.geometric.mean.imputed.log10, col="blue")
+
+
+par(mfrow=c(1,2))
+hist(log10ic50data+2, freq=FALSE, breaks=seq(0,4, length=15), main = "Histogram of log10(IC50)", xlab="log10(IC50)")
+fit <- fitdistr(log10ic50data+2, "lognormal")
+curve(dlnorm(x, meanlog = fit$estimate[1], sdlog = fit$estimate[2]), col="red", add=TRUE)
+
+dlnorm.quantiles <- qlnorm(p, meanlog=fit$estimate[1], sdlog = fit$estimate[2])
+plot(sort(dlnorm.quantiles), sort(log10ic50data+2), xlab = "Theoretical Quantiles", 
+     ylab = "Sample Quantiles", main = "Log-Normal Q-Q Plot")
+abline(0,1, col="blue")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+
+
+# library(MASS)
+# fit <- fitdistr(ic50data, "exponential")
+# ks.test(ic50data, "pexp", fit$estimate)
+# 
+# fit2 <- fitdistr(log10ic50data, "normal")
+# ks.test(log10ic50data, "pnorm", fit2$estimate)
+```
