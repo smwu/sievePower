@@ -1,9 +1,15 @@
 source("markHR.R")
+source("covEst.R")
 library(survival)
-
 
 # 've' returns vaccine efficacy values given parameters 'alpha', 'beta', and 'gamma' 
 ve <- function(v, a, b, g){ 1-exp(a+b*v+g) }
+
+dVE <- function(v, a, b, g){ -exp(a+b*v+g)*c(1,v,1) }
+seVE <- function(v, Var, a, b, g){
+  sapply(v, function(mark){ drop(sqrt(t(dVE(mark,a,b,g)) %*% Var %*% dVE(mark,a,b,g))) })
+}
+
 
 # 'dPredict' returns nonparametric density estimates at 'x'
 # 'npdensityObject' is the output object from 'npudens'
@@ -84,15 +90,34 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName){
     
     phReg <- coxph(Surv(X,d) ~ Z)  # calculate marginal hazard ratio
     thetaHat <- dRatio$coef        # estimates for betaHat and alphaHat
-    gammaHat <- phReg$coef        
+    gammaHat <- phReg$coef   
     
-    VE <- ve(V,thetaHat[1],thetaHat[2],gammaHat)  # vaccine efficacies calculated using estimated parameters
+    # vaccine efficacies calculated using estimated parameters
+    VE <- ve(V,thetaHat[1],thetaHat[2],gammaHat) 
+    
+    # variance estimates and confidence intervals
+    vthetaHat <- dRatio$var[1:2,1:2]
+    vgammaHat <- drop(phReg$var) 
+    covThG <- covEst(X,d,V,Z,thetaHat[1:2],thetaHat[3],gammaHat)
+    Sigma <- cbind(rbind(vthetaHat,covThG), c(covThG,vgammaHat))
+    se <- seVE(V,Sigma,thetaHat[1],thetaHat[2],gammaHat)
+    ci <- c(VE + qnorm(0.975)*se %o% c(-1,1))
+    
+    # 1-sided test of H0: VE(v)=VE vs. alternative that beta > 0
+    waldH0 <- thetaHat[2]/sqrt(vthetaHat[2,2])
+    waldH0.pval <- 1 - pnorm(waldH0)
+    
+    # one-sided weighted Wald-type test of H00: VE(v)=0 vs alternatives where VE>0 and VE(v) is decreasing
+    weighted.waldH00 <- (thetaHat[2]/vthetaHat[2,2] - gammaHat/vgammaHat)/
+      sqrt(1/vthetaHat[2,2] + 1/vgammaHat - 2*covThG[2]/(vthetaHat[2,2]*vgammaHat))
+    weighted.waldH00.pval <- 1 - pnorm(weighted.waldH00)
     
     # 2-sided likelihood ratio test of the null hypothesis that beta=0 (constant VE curve)
     lrBeta.pval <- LRtest(V[d==1],Z[d==1],thetaHat[-length(thetaHat)],thetaHat[length(thetaHat)])$pval
     
     return( list(beta = beta, alpha = alpha, gamma = gamma, nInf0 = nInf0, nInf1 = nInf1, V = V, VE = VE, 
-                 mark = V[d==1], trt.id = Z[d==1], lrBeta.pval = lrBeta.pval, 
+                 mark = V[d==1], trt.id = Z[d==1], lrBeta.pval = lrBeta.pval, covThG = covThG,
+                 weighted.waldH00.pval = weighted.waldH00.pval, waldH0.pval = waldH0.pval, 
                  thetaHat = thetaHat[-length(thetaHat)], gammaHat = gammaHat))
   }
 }

@@ -11,8 +11,12 @@ dataDir <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
 alphaLR <- 0.1
 alphaWald <- 0.05
 powerLR <- numeric(24)
-powerWald <- numeric(24)
+powerH0 <- numeric(24)
+powerH00 <- numeric(24)
 simulations <- 10  # 10000
+
+# for comparing 2-sided LR p-value with 1-sided LR p-value
+power2sidedLR <- numeric(24)
 
 #=========
 # AMP-B:
@@ -32,22 +36,41 @@ dens <- npudens(densbw)
 
 for (i in 1:simulations) {
   result <- simulOne(Np, np, markVE, taumax, dens, "log10ic50")
-  if (result$lrBeta.pval <= alphaLR & (beta > 0)) { 
+  
+  # likelihood ratio test (serves as sanity check)
+  if (result$lrBeta.pval <= alphaLR & (result$beta > 0)) { 
     powerLR[1] <- powerLR[1] + 1
   }
-  # if (result$WaldH00 <= alphaWald) { 
-  #   powerWald[1] <- powerWald[1] + 1
-  # }
+  # two-sided likelihood ratio p-value
+  if (result$lrBeta.pval <= alphaLR) { 
+    power2sidedLR[1] <- power2sidedLR[1] + 1
+  }
+  
+  # 1-sided test of H0: VE(v)=VE vs. alternative that beta > 0
+  if (result$waldH0.pval <= alphaWald) {
+    powerH0[1] <- powerH0[1] + 1
+  }
+  
+  # one-sided weighted Wald-type test of H00: VE(v)=0 vs alternatives where VE>0 and VE(v) is decreasing
+  if (result$weighted.waldH00.pval) {
+    powerH00[1] <- powerH0[1] + 1
+  }
+
 }
 
-# the below powers should be comparable
-mean((lrBeta.pvals <= 0.1) & (thetaHat[2] > 0))  # p-val is below 2-sided alpha and point estimate is in right direction
-mean(waldH00.pvals <= 0.05)  # p-val is below 1-sided alpha
+# # the below powers should be comparable
+# mean((lrBeta.pvals <= 0.1) & (thetaHat[2] > 0))  # p-val is below 2-sided alpha and point estimate is in right direction
+# mean(waldH00.pvals <= 0.05)  # p-val is below 1-sided alpha
 
 powerLR[1] <- powerLR[1]/simulations
-powerWald[1] <- powerWald[1]/simulations
+power2sidedLR[1] <- power2sidedLR[1]/simulations
+powerH0[1] <- powerH0[1]/simulations
+powerH00[1] <- powerH00[1]/simulations
 
 #========================================== Miscellaneous==========================
+result <- simulOne(Np, np, markVE, taumax, dens, "log10ic50")
+##sanity check tat values of covEst are small
+result$covEst
 
 # this illustrates how the nonparametric density can be integrated over
 # also a sanity check that this is a true density, i.e., the integral = 1
@@ -58,14 +81,14 @@ x <- seq(-3.5, 3.5, by=0.1)
 plot(x, dPredict(x, dens, "log10ic50"), col="red", type="l")  # predicted density 
 lines(x, dPredict(x, dens, "log10ic50")*exp(alpha+beta*x), col="blue")
 
-
+# creating the density for the mark variable in placebos
 test <- seq(-100, 100, length=100)
 dPredict(test, dens, "log10ic50")
 b <- function(x, npdensityObject, varName, alpha, beta) {
   dPredict(x, npdensityObject, varName)*exp(alpha + beta*x)
 }
 b(test, dens, "log10ic50", alpha=-10, beta=beta)
-
+# sanity check that this is a true density, i.e., the integral = 1
 integrate(b, lower=-100, upper=100, npdensityObject=dens, varName="log10ic50", alpha=alpha, beta=beta, subdivisions=2000)$value
 
 # # Maximum likelihood estimation for Exp(lambda) gives lambdaHat = 1/mean(data)
