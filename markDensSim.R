@@ -34,7 +34,7 @@ f1 <- function(v, dens, varName, alpha, beta){
 
 # 'intf1' is the equation that is solved to obtain parameter 'alpha'
 intf1 <- function(alpha, dens, varName, beta){
-  integrate(f1, lower=-100, upper=100, dens=dens, varName="log10ic50", alpha=alpha, beta=beta, subdivisions=2000)$value - 1
+  integrate(f1, lower=-100, upper=100, dens=dens, varName=varName, alpha=alpha, beta=beta, subdivisions=2000, stop.on.error = FALSE)$value - 1
 }
 
 
@@ -55,7 +55,7 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName){
   
   # true parameters obtained by solving the system of equations specifying cutoff VE values
   beta <- log(1-markVE)/log10(0.3/50)
-  alpha <- uniroot(intf1, interval=c(-10,10), dens=dens, varName=varName, beta=beta)$root  
+  alpha <- uniroot(intf1, interval=c(-20,20), dens=dens, varName=varName, beta=beta)$root  
   phi <- (log(1 - markVE) - log10(0.3*50)*beta)/2  
   gamma <- phi - alpha
  
