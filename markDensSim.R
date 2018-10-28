@@ -5,11 +5,10 @@ library(survival)
 # 've' returns vaccine efficacy values given parameters 'alpha', 'beta', and 'gamma' 
 ve <- function(v, a, b, g){ 1-exp(a+b*v+g) }
 
-dVE <- function(v, a, b, g){ -exp(a+b*v+g)*c(1,v,1) }
-seVE <- function(v, Var, a, b, g){
-  sapply(v, function(mark){ drop(sqrt(t(dVE(mark,a,b,g)) %*% Var %*% dVE(mark,a,b,g))) })
-}
-
+# dVE <- function(v, a, b, g){ -exp(a+b*v+g)*c(1,v,1) }
+# seVE <- function(v, Var, a, b, g){
+#   sapply(v, function(mark){ drop(sqrt(t(dVE(mark,a,b,g)) %*% Var %*% dVE(mark,a,b,g))) })
+# }
 
 # 'dPredict' returns nonparametric density estimates at 'x'
 # 'npdensityObject' is the output object from 'npudens'
@@ -38,7 +37,7 @@ intf1 <- function(alpha, dens, varName, beta){
 }
 
 
-# `simulOne` simulates data and runs 1-sided Wald tests for H0: VE(v)=0 and H0: VE(v)=VE and a likelihood ratio test for H0: VE(v)=VE 
+# `simulOne` simulates data and runs 1-sided Wald-type tests for H00: VE(v)=0 and H0: VE(v)=VE and a likelihood ratio test for H0: VE(v)=VE 
 # The function returns a list containing the simulated mark variable, the p-values of the hypothesis tests, 
 # and the parameters estimated in the mark-density ratio and the marginal hazard function 
   # 'Np' is number of subjects in placebo group
@@ -95,13 +94,13 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName){
     # vaccine efficacies calculated using estimated parameters
     VE <- ve(V,thetaHat[1],thetaHat[2],gammaHat) 
     
-    # variance estimates and confidence intervals
+    # variance and covariance estimates
     vthetaHat <- dRatio$var[1:2,1:2]
     vgammaHat <- drop(phReg$var) 
     covThG <- covEst(X,d,V,Z,thetaHat[1:2],thetaHat[3],gammaHat)
-    Sigma <- cbind(rbind(vthetaHat,covThG), c(covThG,vgammaHat))
-    se <- seVE(V,Sigma,thetaHat[1],thetaHat[2],gammaHat)
-    ci <- c(VE + qnorm(0.975)*se %o% c(-1,1))
+    # Sigma <- cbind(rbind(vthetaHat,covThG), c(covThG,vgammaHat))
+    # se <- seVE(V,Sigma,thetaHat[1],thetaHat[2],gammaHat)
+    # ci <- c(VE + qnorm(0.975)*se %o% c(-1,1))
     
     # 1-sided test of H0: VE(v)=VE vs. alternative that beta > 0
     waldH0 <- thetaHat[2]/sqrt(vthetaHat[2,2])
@@ -122,8 +121,42 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName){
   }
 }
 
+# 'calcPower' calculates power for the 1-sided Wald-type test of H00:VE(v)=0, the 1-sided Wald-type test of H0:VE(v)=VE,
+# the 1-sided likelihood ratio test of H0:beta=0, H1:beta>0, and the 2-sided likelihood ratio test of H0:beta=0.
+# Given a dataframe, 'power', with columns 'WaldH00', 'WaldH0', 'LR', and 'twosidedLR' and each row representing a 
+# different scenario (e.g., AMP-B, VE(0.3)=0.7, IC50 could characterize one scenario), the function modifies the 
+# dataframe and returns the modified dataframe. 
+# 'index' is the index of the row (and scenario) that will be modified and contain the new power calculations
+# 'alphaLR' is the type 1 error rate for the likelihood ratio tests
+# 'alphaWald' is the type 1 error rate for the Wald-type tests
+calcPower <- function(index, simulations, Np, np, markVE, taumax, dens, varName, alphaLR, alphaWald, power) {
+  for (i in 1:simulations) {
+    result <- simulOne(Np, np, markVE, taumax, dens, varName)
+    
+    # likelihood ratio test (serves as sanity check)
+    if (result$lrBeta.pval <= alphaLR & (result$beta > 0)) { 
+      power$LR[index] <- power$LR[index] + 1
+    }
+    # two-sided likelihood ratio p-value
+    if (result$lrBeta.pval <= alphaLR) { 
+      power$twosidedLR[index] <- power$twosidedLR[index] + 1
+    }
+    
+    # 1-sided Wald-type test of H0: VE(v)=VE vs. alternative that beta > 0
+    if (result$waldH0.pval <= alphaWald) {
+      power$WaldH0[index] <- power$WaldH0[index] + 1
+    }
+    
+    # one-sided weighted Wald-type test of H00: VE(v)=0 vs alternatives where VE>0 and VE(v) is decreasing
+    if (result$weighted.waldH00.pval <= alphaWald) {
+      power$WaldH00[index] <- power$WaldH00[index] + 1
+    }
+  }
+  return(power)
+}
 
 
+#=================================Extraneous functions=================================================================
 # # 'plotDistHazVE' generates a plot with point and interval estimates of VE(v), and scatter- and box-plots of univariate index values by treatment in the top panel
 # # p-values of tests evaluating H00 and H0 are reported
 # # the number of distances is reported

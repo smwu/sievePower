@@ -18,54 +18,23 @@ rownames(power) <- c("B_0_ic50", "B_0.3_ic50", "B_0.5_ic50", "B_0.7_ic50", "B_0.
                      "B_0_ic80", "B_0.3_ic80", "B_0.5_ic80", "B_0.7_ic80", "B_0.9_ic80", 
                      "C_0_ic80", "C_0.3_ic80", "C_0.5_ic80", "C_0.7_ic80", "C_0.9_ic80",
                      "Pooled_0_ic80", "Pooled_0.3_ic80", "Pooled_0.5_ic80", "Pooled_0.7_ic80", "Pooled_0.9_ic80")
-colnames(power) <- c("WaldH0", "WaldH00", "LR", "twosidedLR")
-  # powerLR <- numeric(30)
-  # powerH0 <- numeric(30)
-  # powerH00 <- numeric(30)
-  
-  # # for comparing 2-sided LR p-value with 1-sided LR p-value
-  # power2sidedLR <- numeric(30)
+# twosidedLR is for comparing the 2-sided LR p-value with the 1-sided LR p-value
+colnames(power) <- c("WaldH00", "WaldH0", "LR", "twosidedLR")  
 
-#======================= AMP-B=======================
+#======================= AMP-B, IC50 ========================================
 
-Np = 900
-np = 34
-taumax = 80  # weeks
-markVE <- 0
+Np = 900     # number of subjects in placebo group
+np = 34      # number of cases in placebo group
+taumax = 80  # follow-up time in weeks
+markVE <- 0  # cutoff mark VE value (i.e., VE value corresponding to a mark of 0.3)
 data <- read.csv(file.path(dataDir, "catnap_vrc01_neut_b.csv"))
-
-ic50 <- data$ic50.geometric.mean.imputed
 log10ic50 <- data$ic50.geometric.mean.imputed.log10
 
 # nonparametric density estimation using the package 'np'
 densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
 dens <- npudens(densbw)
 
-calcPower <- function(index, simulations, Np, np, markVE, taumax, dens, varName, alphaLR, alphaWald, power) {
-  for (i in 1:simulations) {
-    result <- simulOne(Np, np, markVE, taumax, dens, varName)
-    
-    # likelihood ratio test (serves as sanity check)
-    if (result$lrBeta.pval <= alphaLR & (result$beta > 0)) { 
-      power$LR[index] <- power$LR[index] + 1
-    }
-    # two-sided likelihood ratio p-value
-    if (result$lrBeta.pval <= alphaLR) { 
-      power$twosidedLR[index] <- power$twosidedLR[index] + 1
-    }
-    
-    # 1-sided test of H0: VE(v)=VE vs. alternative that beta > 0
-    if (result$waldH0.pval <= alphaWald) {
-      power$WaldH0[index] <- power$WaldH0[index] + 1
-    }
-    
-    # one-sided weighted Wald-type test of H00: VE(v)=0 vs alternatives where VE>0 and VE(v) is decreasing
-    if (result$weighted.waldH00.pval <= alphaWald) {
-      power$WaldH00[index] <- power$WaldH00[index] + 1
-    }
-  }
-  return(power)
-}
+# power calculations saved in a repeatedly updated dataframe, 'power'
 power <- calcPower(1, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power)
 markVE <- 0.3
 power <- calcPower(2, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power)
@@ -76,16 +45,15 @@ power <- calcPower(4, simulations, Np, np, markVE, taumax, dens, "log10ic50", al
 markVE <- 0.9
 power <- calcPower(5, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power)
 
-#==================== AMP-C =============================================
+#==================== AMP-C, IC50 =============================================
 Np = 634
 np = 34
-taumax = 80  # weeks
+taumax = 80
 markVE <- 0
 data <- read.csv(file.path(dataDir, "catnap_vrc01_neut_c.csv"))
 log10ic50 <- data$ic50.geometric.mean.imputed.log10
 
-# nonparametric density estimation using the package 'np'
-densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
+densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov") 
 dens <- npudens(densbw)
 
 power <- calcPower(6, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power)
@@ -98,16 +66,15 @@ power <- calcPower(9, simulations, Np, np, markVE, taumax, dens, "log10ic50", al
 markVE <- 0.9
 power <- calcPower(10, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power)
 
-#===================== Pooled================================= 
+#===================== Pooled, IC50 ================================= 
 Np = 1534
 np = 68
-taumax = 80  # weeks
+taumax = 80 
 markVE <- 0
 data <- read.csv(file.path(dataDir, "catnap_vrc01_neut_all.csv"))
 log10ic50 <- data$ic50.geometric.mean.imputed.log10
 
-# nonparametric density estimation using the package 'np'
-densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
+densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  
 dens <- npudens(densbw)
 
 power <- calcPower(11, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power)
@@ -120,21 +87,17 @@ power <- calcPower(14, simulations, Np, np, markVE, taumax, dens, "log10ic50", a
 markVE <- 0.9
 power <- calcPower(15, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power)
 
-#======================= IC80 =======================
-#======================= AMP-B=======================
+#======================= AMP-B, IC80 =================================================
 
 Np = 900
 np = 34
-taumax = 80  # weeks
+taumax = 80 
 markVE <- 0
 data <- read.csv(file.path(dataDir, "catnap_vrc01_neut_b.csv"))
-
-ic80 <- data$ic80.geometric.mean.imputed
 log10ic80 <- data$ic80.geometric.mean.imputed.log10
 log10ic80 <- na.omit(log10ic80)
 
-# nonparametric density estimation using the package 'np'
-densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  # bandwidth selection
+densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  
 dens <- npudens(densbw)
 
 power <- calcPower(16, simulations, Np, np, markVE, taumax, dens, "log10ic80", alphaLR, alphaWald, power)
@@ -147,16 +110,16 @@ power <- calcPower(19, simulations, Np, np, markVE, taumax, dens, "log10ic80", a
 markVE <- 0.9
 power <- calcPower(20, simulations, Np, np, markVE, taumax, dens, "log10ic80", alphaLR, alphaWald, power)
 
-#==================== AMP-C =============================================
+#==================== AMP-C, CI80 ====================================================
 Np = 634
 np = 34
-taumax = 80  # weeks
+taumax = 80  
 markVE <- 0
 data <- read.csv(file.path(dataDir, "catnap_vrc01_neut_c.csv"))
 log10ic80 <- data$ic80.geometric.mean.imputed.log10
+log10ic80 <- na.omit(log10ic80)
 
-# nonparametric density estimation using the package 'np'
-densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  # bandwidth selection
+densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  
 dens <- npudens(densbw)
 
 power <- calcPower(21, simulations, Np, np, markVE, taumax, dens, "log10ic80", alphaLR, alphaWald, power)
@@ -169,16 +132,16 @@ power <- calcPower(24, simulations, Np, np, markVE, taumax, dens, "log10ic80", a
 markVE <- 0.9
 power <- calcPower(25, simulations, Np, np, markVE, taumax, dens, "log10ic80", alphaLR, alphaWald, power)
 
-#===================== Pooled================================= 
+#===================== Pooled, IC80 =================================================== 
 Np = 1534
 np = 68
-taumax = 80  # weeks
+taumax = 80  
 markVE <- 0
 data <- read.csv(file.path(dataDir, "catnap_vrc01_neut_all.csv"))
 log10ic80 <- data$ic80.geometric.mean.imputed.log10
+log10ic80 <- na.omit(log10ic80)
 
-# nonparametric density estimation using the package 'np'
-densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  # bandwidth selection
+densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov") 
 dens <- npudens(densbw)
 
 power <- calcPower(26, simulations, Np, np, markVE, taumax, dens, "log10ic80", alphaLR, alphaWald, power)
@@ -191,8 +154,9 @@ power <- calcPower(29, simulations, Np, np, markVE, taumax, dens, "log10ic80", a
 markVE <- 0.9
 power <- calcPower(30, simulations, Np, np, markVE, taumax, dens, "log10ic80", alphaLR, alphaWald, power)
 
-#========================================================
+#===================== Save power calculations ===================================
 power <- power/simulations
+write.csv(power, "power.csv")
 
 
 # # the below powers should be comparable
@@ -202,6 +166,7 @@ power <- power/simulations
 
 
 #========================================== Miscellaneous==========================
+
 result <- simulOne(Np, np, markVE, taumax, dens, "log10ic50")
 ##sanity check tat values of covEst are small
 result$covEst
