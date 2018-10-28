@@ -1,0 +1,284 @@
+---
+title: "AMP Power Calculations"
+author: "Stephanie Wu"
+date: "October 28, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(reshape2)
+library(np)
+options(np.messages=FALSE)
+
+dataFile <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
+source(file.path(dataFile, "sievePower/markDensSim.R"))
+power <- read.csv(file.path(dataFile,"sievePower/power.csv"), header=TRUE, row.names=1)
+
+# function for calculation vaccine efficacy
+ve <- function(v, a, b, g){ 1-exp(a+b*v+g) }
+
+# 'f0' is the density of the mark variable in the placebo group
+# density is given for values of `v`
+f0 <- function(v, dens, varName){
+  dPredict(v, dens, varName)
+}
+
+# 'f1' is the density of the mark variable in the vaccine group
+# density if given for values of `v`
+f1 <- function(v, dens, varName, alpha, beta){
+  f0(v, dens, varName)*exp(alpha + beta*v)
+}
+
+# 'intf1' is the equation that is solved to obtain parameter 'alpha'
+intf1 <- function(alpha, dens, varName, beta){
+  integrate(f1, lower=-100, upper=100, dens=dens, varName=varName, alpha=alpha, beta=beta, subdivisions=2000, stop.on.error = FALSE)$value - 1
+}
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+# initialize mark grid and vaccine efficacy matrix
+distGrid <- seq(log10(0.00076), log10(50), length = 100)
+
+# different cutoff scenarios for mark VE
+markVE = c(0, 0.3, 0.5, 0.7, 0.9) 
+
+# initialize parameters
+beta <- numeric(5)
+alpha <- numeric(5)
+phi <- numeric(5)
+gamma <- numeric(5)
+trueVE <- matrix(nrow=length(distGrid), ncol=5)
+truePE <- numeric(5)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# AMP-B IC50 VRC01 vs. Control
+
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+log10ic50 <- subB$ic50.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-20,20), dens=dens, varName="log10ic50", beta=beta[i])$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+data <- data.frame(cbind(distGrid, trueVE[,1], trueVE[,2], trueVE[,3], trueVE[,4], trueVE[,5]))
+colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "trueVE")
+newData$Power <- ifelse(newData$VE_Cutoff==0, paste0("VE=0: ", power["B_0_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["B_0_ic50","WaldH0"]), 
+                        ifelse(newData$VE_Cutoff==0.3,paste0("VE=0: ", power["B_0.3_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["B_0.3_ic50","WaldH0"]),
+                               ifelse(newData$VE_Cutoff==0.5, paste0("VE=0: ", power["B_0.5_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["B_0.5_ic50","WaldH0"]), 
+                                      ifelse(newData$VE_Cutoff==0.7, paste0("VE=0: ", power["B_0.7_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["B_0.7_ic50","WaldH0"]), paste0("VE=0: ", power["B_0.9_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["B_0.9_ic50","WaldH0"])))))
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGrid, y=trueVE, color=Power)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC50") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("AMP-B IC50 Power Calculations for VRC01 vs. Control") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=22), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=13), legend.title = element_text(size=15), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
+
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# AMP-B IC80 VRC01 vs. Control
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+log10ic80 <- subB$ic80.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-20,20), dens=dens, varName="log10ic80", beta=beta[i])$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+data <- data.frame(cbind(distGrid, trueVE[,1], trueVE[,2], trueVE[,3], trueVE[,4], trueVE[,5]))
+colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "trueVE")
+newData$Power <- ifelse(newData$VE_Cutoff==0, paste0("VE=0: ", power["B_0_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["B_0_ic80","WaldH0"]), 
+                        ifelse(newData$VE_Cutoff==0.3,paste0("VE=0: ", power["B_0.3_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["B_0.3_ic80","WaldH0"]),
+                               ifelse(newData$VE_Cutoff==0.5, paste0("VE=0: ", power["B_0.5_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["B_0.5_ic80","WaldH0"]), 
+                                      ifelse(newData$VE_Cutoff==0.7, paste0("VE=0: ", power["B_0.7_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["B_0.7_ic80","WaldH0"]), paste0("VE=0: ", power["B_0.9_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["B_0.9_ic80","WaldH0"])))))
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGrid, y=trueVE, color=Power)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC80") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("AMP-B IC80 Power Calculations for VRC01 vs. Control") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=22), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=13), legend.title = element_text(size=15), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# AMP-C IC50 VRC01 vs. Control
+subC <- read.csv(file.path(dataFile, "catnap_vrc01_neut_c.csv"))
+log10ic50 <- subC$ic50.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-20,20), dens=dens, varName="log10ic50", beta=beta[i])$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+data <- data.frame(cbind(distGrid, trueVE[,1], trueVE[,2], trueVE[,3], trueVE[,4], trueVE[,5]))
+colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "trueVE")
+newData$Power <- ifelse(newData$VE_Cutoff==0, paste0("VE=0: ", power["C_0_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["C_0_ic50","WaldH0"]), 
+                        ifelse(newData$VE_Cutoff==0.3,paste0("VE=0: ", power["C_0.3_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["C_0.3_ic50","WaldH0"]),
+                               ifelse(newData$VE_Cutoff==0.5, paste0("VE=0: ", power["C_0.5_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["C_0.5_ic50","WaldH0"]), 
+                                      ifelse(newData$VE_Cutoff==0.7, paste0("VE=0: ", power["C_0.7_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["C_0.7_ic50","WaldH0"]), paste0("VE=0: ", power["C_0.9_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["C_0.9_ic50","WaldH0"])))))
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGrid, y=trueVE, color=Power)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC50") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("AMP-C IC50 Power Calculations for VRC01 vs. Control") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=22), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=13), legend.title = element_text(size=15), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
+
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# AMP-C IC80 VRC01 vs. Control
+subC <- read.csv(file.path(dataFile, "catnap_vrc01_neut_c.csv"))
+log10ic80 <- subC$ic80.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-20,20), dens=dens, varName="log10ic80", beta=beta[i])$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+data <- data.frame(cbind(distGrid, trueVE[,1], trueVE[,2], trueVE[,3], trueVE[,4], trueVE[,5]))
+colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "trueVE")
+newData$Power <- ifelse(newData$VE_Cutoff==0, paste0("VE=0: ", power["C_0_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["C_0_ic80","WaldH0"]), 
+                        ifelse(newData$VE_Cutoff==0.3,paste0("VE=0: ", power["C_0.3_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["C_0.3_ic80","WaldH0"]),
+                               ifelse(newData$VE_Cutoff==0.5, paste0("VE=0: ", power["C_0.5_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["C_0.5_ic80","WaldH0"]), 
+                                      ifelse(newData$VE_Cutoff==0.7, paste0("VE=0: ", power["C_0.7_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["C_0.7_ic80","WaldH0"]), paste0("VE=0: ", power["C_0.9_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["C_0.9_ic80","WaldH0"])))))
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGrid, y=trueVE, color=Power)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC80") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("AMP-C IC80 Power Calculations for VRC01 vs. Control") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=22), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=13), legend.title = element_text(size=15), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# Pooled IC50 VRC01 vs. Control
+subPooled <- read.csv(file.path(dataFile, "catnap_vrc01_neut_all.csv"))
+log10ic50 <- subPooled$ic50.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-20,20), dens=dens, varName="log10ic50", beta=beta[i])$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+data <- data.frame(cbind(distGrid, trueVE[,1], trueVE[,2], trueVE[,3], trueVE[,4], trueVE[,5]))
+colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "trueVE")
+newData$Power <- ifelse(newData$VE_Cutoff==0, paste0("VE=0: ", power["Pooled_0_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0_ic50","WaldH0"]), 
+                        ifelse(newData$VE_Cutoff==0.3,paste0("VE=0: ", power["Pooled_0.3_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0.3_ic50","WaldH0"]),
+                               ifelse(newData$VE_Cutoff==0.5, paste0("VE=0: ", power["Pooled_0.5_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0.5_ic50","WaldH0"]), 
+                                      ifelse(newData$VE_Cutoff==0.7, paste0("VE=0: ", power["Pooled_0.7_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0.7_ic50","WaldH0"]), paste0("VE=0: ", power["Pooled_0.9_ic50", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0.9_ic50","WaldH0"])))))
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGrid, y=trueVE, color=Power)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC50") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("Pooled IC50 Power Calculations for VRC01 vs. Control") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=22), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=13), legend.title = element_text(size=15), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# Pooled IC80 VRC01 vs. Control
+subPooled <- read.csv(file.path(dataFile, "catnap_vrc01_neut_all.csv"))
+log10ic80 <- subPooled$ic80.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-20,20), dens=dens, varName="log10ic80", beta=beta[i])$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+data <- data.frame(cbind(distGrid, trueVE[,1], trueVE[,2], trueVE[,3], trueVE[,4], trueVE[,5]))
+colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "trueVE")
+newData$Power <- ifelse(newData$VE_Cutoff==0, paste0("VE=0: ", power["Pooled_0_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0_ic80","WaldH0"]), 
+                        ifelse(newData$VE_Cutoff==0.3,paste0("VE=0: ", power["Pooled_0.3_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0.3_ic80","WaldH0"]),
+                               ifelse(newData$VE_Cutoff==0.5, paste0("VE=0: ", power["Pooled_0.5_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0.5_ic80","WaldH0"]), 
+                                      ifelse(newData$VE_Cutoff==0.7, paste0("VE=0: ", power["Pooled_0.7_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0.7_ic80","WaldH0"]), paste0("VE=0: ", power["Pooled_0.9_ic80", "WaldH00"], ", \nVE(v)=VE: ", power["Pooled_0.9_ic80","WaldH0"])))))
+
+colors <- gg_color_hue(5)
+ggplot(newData, aes(x=distGrid, y=trueVE, color=Power)) + geom_line(size=1.2) + 
+  scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+  scale_y_continuous(breaks = seq(0,1,0.2)) + xlab("IC80") + ylab("Prevention Efficacy against HIV Infection (%)") +
+  ggtitle("Pooled IC80 Power Calculations for VRC01 vs. Control") + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+  theme(plot.title = element_text(size=22), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+        axis.text = element_text(size=12), legend.text = element_text(size=13), legend.title = element_text(size=15), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
+```
+
+
+
+
+## 30 ug/ml vs. Control
