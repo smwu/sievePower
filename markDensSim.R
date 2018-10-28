@@ -5,11 +5,6 @@ library(survival)
 # 've' returns vaccine efficacy values given parameters 'alpha', 'beta', and 'gamma' 
 ve <- function(v, a, b, g){ 1-exp(a+b*v+g) }
 
-# dVE <- function(v, a, b, g){ -exp(a+b*v+g)*c(1,v,1) }
-# seVE <- function(v, Var, a, b, g){
-#   sapply(v, function(mark){ drop(sqrt(t(dVE(mark,a,b,g)) %*% Var %*% dVE(mark,a,b,g))) })
-# }
-
 # 'dPredict' returns nonparametric density estimates at 'x'
 # 'npdensityObject' is the output object from 'npudens'
 # 'varName' is the variable name used in the formula in 'npudensbw'
@@ -46,7 +41,8 @@ intf1 <- function(alpha, dens, varName, beta){
   # 'taumax' is the follow-up time (in weeks)
   # 'dens' is the output object from the 'npudens' function in the 'np' package
   # 'varName' is the variable name used in the formula in 'npudensbw'
-simulOne <- function(Np, np, markVE, taumax, dens, varName){
+  # 'randomRatio' is the randomization ratio of treatment to placebo (e.g. '2' for 2:1 treatment:placebo randomization)
+simulOne <- function(Np, np, markVE, taumax, dens, varName, randomRatio){
   
   # rate parameters for failure time T and censoring time C
   lambdaT <- (log(1 - (1 + 0.1*Np/np)*(np/Np)))/(-taumax*(1 + 0.1*Np/np))
@@ -59,21 +55,21 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName){
   gamma <- phi - alpha
  
   
-  Z <- c(rep(0, Np), rep(1, 2*Np))        # treatment group
-  T0 <- rexp(Np, lambdaT)                 # failure time for placebo
-  T1 <- rexp(2*Np, lambdaT*exp(gamma))    # failure time for vaccine
-  T <- c(T0,T1)                           # failure times
-  C <- rexp(3*Np, lambdaC)                # censoring times
-  X <- pmin(T,C, taumax)                  # observed time: minimum of failure, censoring, and study time
-  d <- ifelse(T <= pmin(C,taumax),1,0)    # failure indicator (0 if censored)
-  nInf0 <- sum(d*(1-Z))                   # number of infected in placebo group
-  nInf1 <- sum(d*Z)                       # number of infected in vaccine group
+  Z <- c(rep(0, Np), rep(1, randomRatio*Np))        # treatment group
+  T0 <- rexp(Np, lambdaT)                           # failure times for placebo
+  T1 <- rexp(randomRatio*Np, lambdaT*exp(gamma))    # failure times for vaccine
+  T <- c(T0,T1)                                     # failure times
+  C <- rexp((randomRatio+1)*Np, lambdaC)            # censoring times
+  X <- pmin(T,C, taumax)                            # observed time: minimum of failure, censoring, and study time
+  d <- ifelse(T <= pmin(C,taumax),1,0)              # failure indicator (0 if censored)
+  nInf0 <- sum(d*(1-Z))                             # number of infected in placebo group
+  nInf1 <- sum(d*Z)                                 # number of infected in vaccine group
   
   Xpoints <- seq(-3,3,len=25000)                    # fine grid of points ranging from -3 to 3 to be sampled from
   prob0 <- f0(Xpoints, dens, varName)               # sampling probability for placebos, using nonparametric density estimates
   prob1 <- f1(Xpoints, dens, varName, alpha, beta)  # sampling probabiliy for vaccinees, using nonparametric density estimates 
   V0 <- sample(Xpoints, size=Np, prob=prob0)        # sample with replacement with probability prob0 to simulate mark in placebos 
-  V1 <- sample(Xpoints, size=2*Np, prob=prob1)      # sample with replacement with probability prob1 to simulate mark in vaccinees
+  V1 <- sample(Xpoints, size=randomRatio*Np, prob=prob1)  # sample with replacement with probability prob1 to simulate mark in vaccinees
   V <- c(V0, V1)                                    # mark variable
   V <- ifelse(V < log10(0.00076), log10(0.00076), ifelse(V <= log10(50), V, log10(50)))  # mark variable with extreme values censored
     
@@ -98,9 +94,6 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName){
     vthetaHat <- dRatio$var[1:2,1:2]
     vgammaHat <- drop(phReg$var) 
     covThG <- covEst(X,d,V,Z,thetaHat[1:2],thetaHat[3],gammaHat)
-    # Sigma <- cbind(rbind(vthetaHat,covThG), c(covThG,vgammaHat))
-    # se <- seVE(V,Sigma,thetaHat[1],thetaHat[2],gammaHat)
-    # ci <- c(VE + qnorm(0.975)*se %o% c(-1,1))
     
     # 1-sided test of H0: VE(v)=VE vs. alternative that beta > 0
     waldH0 <- thetaHat[2]/sqrt(vthetaHat[2,2])
@@ -126,12 +119,12 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName){
 # Given a dataframe, 'power', with columns 'WaldH00', 'WaldH0', 'LR', and 'twosidedLR' and each row representing a 
 # different scenario (e.g., AMP-B, VE(0.3)=0.7, IC50 could characterize one scenario), the function modifies the 
 # dataframe and returns the modified dataframe. 
-# 'index' is the index of the row (and scenario) that will be modified and contain the new power calculations
-# 'alphaLR' is the type 1 error rate for the likelihood ratio tests
-# 'alphaWald' is the type 1 error rate for the Wald-type tests
-calcPower <- function(index, simulations, Np, np, markVE, taumax, dens, varName, alphaLR, alphaWald, power) {
+  # 'index' is the index of the row (and scenario) that will be modified and contain the new power calculations
+  # 'alphaLR' is the type 1 error rate for the likelihood ratio tests
+  # 'alphaWald' is the type 1 error rate for the Wald-type tests
+calcPower <- function(index, simulations, Np, np, markVE, taumax, dens, varName, alphaLR, alphaWald, power, randomRatio) {
   for (i in 1:simulations) {
-    result <- simulOne(Np, np, markVE, taumax, dens, varName)
+    result <- simulOne(Np, np, markVE, taumax, dens, varName, randomRatio)
     
     # likelihood ratio test (serves as sanity check)
     if (result$lrBeta.pval <= alphaLR & (result$beta > 0)) { 
