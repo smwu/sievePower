@@ -129,19 +129,29 @@ paste1 <- function(x, y){
 # 'alpha1sided' is a 1-sided alpha level
 # 'dataDir' is a directory path for data sets used for mark density estimation
 # 'seed' sets a random seed for data generation in 'simulOne'
-getInferenceOneMC <- function(trial, randRatio, IC, VEcoord, Np, np, taumax, alpha1sided, dataB, dataC, dataBandC, seed){
-  # rate parameters for failure time T and censoring time C
-  lambdaT <- (log(1 - (1 + 0.1*Np/np)*(np/Np)))/(-taumax*(1 + 0.1*Np/np))
-  lambdaC <- 0.1*Np/np*lambdaT
+getInferenceOneMC <- function(trial, randRatio, IC, VEcoord, np, taumax, alpha1sided, dataB, dataC, dataBandC, seed){
+  
+  
   
   scenario <- c(outer(c(outer(c(outer(trial, randRatio, paste1)), IC, paste1)), VEcoord, paste1))
   out <- vector("list", length=length(scenario))
   names(out) <- scenario
   
   for (i in 1:length(trial)){
-    if (trial[i]=="704"){ data <- dataB }
-    if (trial[i]=="703"){ data <- dataC }
-    if (trial[i]=="704and703"){ data <- dataBandC }
+    if (trial[i]=="704"){ 
+      data <- dataB
+      Np <- 900
+    } else if (trial[i]=="703"){ 
+      data <- dataC
+      Np <- 634
+    } else {
+      data <- dataBandC
+      Np <- 900 + 634
+    }
+    
+    # rate parameters for failure time T and censoring time C
+    lambdaT <- (log(1 - (1 + 0.1*Np/np)*(np/Np)))/(-taumax*(1 + 0.1*Np/np))
+    lambdaC <- 0.1*Np/np*lambdaT
     
     for (k in 1:length(IC)){
       mark <- data[,paste0(tolower(IC[k]),".geometric.mean.imputed.log10")]
