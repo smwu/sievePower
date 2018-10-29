@@ -38,6 +38,11 @@ colnames(power1to1) <- c("WaldH00", "WaldH0", "LR", "twosidedLR")
 Np = 900     # number of subjects in placebo group
 np = 34      # number of cases in placebo group
 taumax = 80  # follow-up time in weeks
+
+# rate parameters for failure time T and censoring time C
+lambdaT <- (log(1 - (1 + 0.1*Np/np)*(np/Np)))/(-taumax*(1 + 0.1*Np/np))
+lambdaC <- 0.1*Np/np*lambdaT
+
 markVE <- 0  # cutoff mark VE value (i.e., VE value corresponding to a mark of 0.3)
 data <- read.csv(file.path(dataDir, "catnap_vrc01_neut_b.csv"))
 log10ic50 <- data$ic50.geometric.mean.imputed.log10
@@ -46,25 +51,46 @@ log10ic50 <- data$ic50.geometric.mean.imputed.log10
 densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
 dens <- npudens(densbw)
 
+coeff <- getAlphaBetaGamma(markVE, dens, "log10ic50")
+alpha <- coeff$alpha
+beta <- coeff$beta
+gamma <- coeff$gamma
+
 # power calculations saved in a repeatedly updated dataframe, 'power'
-power <-     calcPower(1, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
-power1to1 <- calcPower(1, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
+power <-     calcPower(1, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
+power1to1 <- calcPower(1, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
 
 markVE <- 0.3
-power <-     calcPower(2, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
-power1to1 <- calcPower(2, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
+coeff <- getAlphaBetaGamma(markVE, dens, "log10ic50")
+alpha <- coeff$alpha
+beta <- coeff$beta
+gamma <- coeff$gamma
+power <-     calcPower(2, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
+power1to1 <- calcPower(2, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
 
 markVE <- 0.5
-power <-     calcPower(3, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
-power1to1 <- calcPower(3, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
+coeff <- getAlphaBetaGamma(markVE, dens, "log10ic50")
+alpha <- coeff$alpha
+beta <- coeff$beta
+gamma <- coeff$gamma
+power <-     calcPower(3, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
+power1to1 <- calcPower(3, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
 
 markVE <- 0.7
-power <-     calcPower(4, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
-power1to1 <- calcPower(4, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
+coeff <- getAlphaBetaGamma(markVE, dens, "log10ic50")
+alpha <- coeff$alpha
+beta <- coeff$beta
+gamma <- coeff$gamma
+power <-     calcPower(4, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
+power1to1 <- calcPower(4, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
 
 markVE <- 0.9
-power <-     calcPower(5, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
-power1to1 <- calcPower(5, simulations, Np, np, markVE, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
+coeff <- getAlphaBetaGamma(markVE, dens, "log10ic50")
+alpha <- coeff$alpha
+beta <- coeff$beta
+gamma <- coeff$gamma
+power <-     calcPower(5, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power, 2)
+power1to1 <- calcPower(5, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, "log10ic50", alphaLR, alphaWald, power1to1, 1)
 
 #==================== AMP-C, IC50, 2:1 =============================================
 Np = 634

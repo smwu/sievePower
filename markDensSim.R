@@ -31,6 +31,19 @@ intf1 <- function(alpha, dens, varName, beta){
   integrate(f1, lower=-100, upper=100, dens=dens, varName=varName, alpha=alpha, beta=beta, subdivisions=2000, stop.on.error = FALSE)$value - 1
 }
 
+# 'getAlphaBetaGamma' calculates the hazard ratio model coefficients alpha, beta, and gamma for
+# a given value of markVE = VE(0.3) = 1 - exp(alpha + beta*0.3 + gamma)
+getAlphaBetaGamma <- function(markVE, dens, varName){
+  beta <- log(1 - markVE)/log10(0.3/50)
+  alpha <- uniroot(intf1, interval=c(-20,20), dens=dens, varName=varName, beta=beta)$root
+  # Stephanie, I don't see why 'phi' is equal to the below expression
+  # phi <- (log(1 - markVE) - log10(0.3*50)*beta)/2
+  # because phi + beta * log10(50) must be equal to 0, I suggest to calculate 'phi' as follows:
+  phi <- -beta*log10(50)
+  # phi is the sum of the density ratio intercept 'alpha' and the overall hazard ratio 'gamma'
+  gamma <- phi - alpha
+  return(list(alpha=alpha, beta=beta, gamma=gamma))
+}
 
 # `simulOne` simulates data and runs 1-sided Wald-type tests for H00: VE(v)=0 and H0: VE(v)=VE and a likelihood ratio test for H0: VE(v)=VE 
 # The function returns a list containing the simulated mark variable, the p-values of the hypothesis tests, 
@@ -42,19 +55,7 @@ intf1 <- function(alpha, dens, varName, beta){
   # 'dens' is the output object from the 'npudens' function in the 'np' package
   # 'varName' is the variable name used in the formula in 'npudensbw'
   # 'randomRatio' is the randomization ratio of treatment to placebo (e.g. '2' for 2:1 treatment:placebo randomization)
-simulOne <- function(Np, np, markVE, taumax, dens, varName, randomRatio){
-  
-  # rate parameters for failure time T and censoring time C
-  lambdaT <- (log(1 - (1 + 0.1*Np/np)*(np/Np)))/(-taumax*(1 + 0.1*Np/np))
-  lambdaC <- 0.1*Np/np*lambdaT
-  
-  # true parameters obtained by solving the system of equations specifying cutoff VE values
-  beta <- log(1-markVE)/log10(0.3/50)
-  alpha <- uniroot(intf1, interval=c(-20,20), dens=dens, varName=varName, beta=beta)$root  
-  phi <- (log(1 - markVE) - log10(0.3*50)*beta)/2  
-  gamma <- phi - alpha
- 
-  
+simulOne <- function(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, varName, randomRatio){
   Z <- c(rep(0, Np), rep(1, randomRatio*Np))        # treatment group
   T0 <- rexp(Np, lambdaT)                           # failure times for placebo
   T1 <- rexp(randomRatio*Np, lambdaT*exp(gamma))    # failure times for vaccine
@@ -107,9 +108,8 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName, randomRatio){
     # 2-sided likelihood ratio test of the null hypothesis that beta=0 (constant VE curve)
     lrBeta.pval <- LRtest(V[d==1],Z[d==1],thetaHat[-length(thetaHat)],thetaHat[length(thetaHat)])$pval
     
-    return( list(beta = beta, alpha = alpha, gamma = gamma, nInf0 = nInf0, nInf1 = nInf1, V = V, VE = VE, 
-                 mark = V[d==1], trt.id = Z[d==1], lrBeta.pval = lrBeta.pval, covThG = covThG,
-                 weighted.waldH00.pval = weighted.waldH00.pval, waldH0.pval = waldH0.pval, 
+    return( list(beta = beta, alpha = alpha, gamma = gamma, nInf0 = nInf0, nInf1 = nInf1, 
+                 weighted.waldH00.pval = weighted.waldH00.pval, waldH0.pval = waldH0.pval, lrBeta.pval = lrBeta.pval, 
                  thetaHat = thetaHat[-length(thetaHat)], gammaHat = gammaHat))
   }
 }
@@ -122,17 +122,13 @@ simulOne <- function(Np, np, markVE, taumax, dens, varName, randomRatio){
   # 'index' is the index of the row (and scenario) that will be modified and contain the new power calculations
   # 'alphaLR' is the type 1 error rate for the likelihood ratio tests
   # 'alphaWald' is the type 1 error rate for the Wald-type tests
-calcPower <- function(index, simulations, Np, np, markVE, taumax, dens, varName, alphaLR, alphaWald, power, randomRatio) {
+calcPower <- function(index, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, varName, alphaLR, alphaWald, power, randomRatio) {
   for (i in 1:simulations) {
-    result <- simulOne(Np, np, markVE, taumax, dens, varName, randomRatio)
+    result <- simulOne(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, varName, randomRatio)
     
-    # likelihood ratio test (serves as sanity check)
-    if (result$lrBeta.pval <= alphaLR & (result$beta > 0)) { 
-      power$LR[index] <- power$LR[index] + 1
-    }
-    # two-sided likelihood ratio p-value
-    if (result$lrBeta.pval <= alphaLR) { 
-      power$twosidedLR[index] <- power$twosidedLR[index] + 1
+    # one-sided weighted Wald-type test of H00: VE(v)=0 vs alternatives where VE>0 and VE(v) is decreasing
+    if (result$weighted.waldH00.pval <= alphaWald) {
+      power$WaldH00[index] <- power$WaldH00[index] + 1
     }
     
     # 1-sided Wald-type test of H0: VE(v)=VE vs. alternative that beta > 0
@@ -140,11 +136,17 @@ calcPower <- function(index, simulations, Np, np, markVE, taumax, dens, varName,
       power$WaldH0[index] <- power$WaldH0[index] + 1
     }
     
-    # one-sided weighted Wald-type test of H00: VE(v)=0 vs alternatives where VE>0 and VE(v) is decreasing
-    if (result$weighted.waldH00.pval <= alphaWald) {
-      power$WaldH00[index] <- power$WaldH00[index] + 1
+    # 1-sided likelihood ratio test (serves as sanity check)
+    if ((result$lrBeta.pval <= alphaLR) & (result$thetaHat[2] > 0)) { 
+      power$LR[index] <- power$LR[index] + 1
+    }
+    
+    # two-sided likelihood ratio p-value
+    if (result$lrBeta.pval <= alphaLR) {
+      power$twosidedLR[index] <- power$twosidedLR[index] + 1
     }
   }
+  
   return(power)
 }
 
