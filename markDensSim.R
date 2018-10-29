@@ -119,20 +119,15 @@ paste1 <- function(x, y){
 }
 
 # 'getInferenceOneMC' returns a matrix of p-values for every combination of the levels of (trial x randRatio x ICpcent x VEcoord) for a single MC iteration
+# 'seed' sets a random seed for data generation in 'simulOne'
 # 'trial' takes on character strings "704", "703", "704and703"
 # 'randRatio' takes on "2:1" and "1:1"
 # 'IC' takes on character strings "IC50" and "IC80"
 # 'VEcoord' takes on numeric values in [0,1] representing VE(log10(0.3))
-# 'Np' is number of subjects in placebo group
-# 'np' is the expected number of cases in placebo group
 # 'taumax' is the follow-up time (in weeks)
 # 'alpha1sided' is a 1-sided alpha level
-# 'dataDir' is a directory path for data sets used for mark density estimation
-# 'seed' sets a random seed for data generation in 'simulOne'
-getInferenceOneMC <- function(trial, randRatio, IC, VEcoord, np, taumax, alpha1sided, dataB, dataC, dataBandC, seed){
-  
-  
-  
+# 'dataB', 'dataC', and 'dataBandC' are the data frames for 704, 703, and 704and703 calculations 
+getInferenceOneMC <- function(seed, trial, randRatio, IC, VEcoord, taumax, alpha1sided, dataB, dataC, dataBandC){
   scenario <- c(outer(c(outer(c(outer(trial, randRatio, paste1)), IC, paste1)), VEcoord, paste1))
   out <- vector("list", length=length(scenario))
   names(out) <- scenario
@@ -140,13 +135,18 @@ getInferenceOneMC <- function(trial, randRatio, IC, VEcoord, np, taumax, alpha1s
   for (i in 1:length(trial)){
     if (trial[i]=="704"){ 
       data <- dataB
+      # 'Np' is number of subjects in placebo group
       Np <- 900
+      # 'np' is the expected number of cases in placebo group
+      np <- 34
     } else if (trial[i]=="703"){ 
       data <- dataC
       Np <- 634
+      np <- 34
     } else {
       data <- dataBandC
       Np <- 900 + 634
+      np <- 68
     }
     
     # rate parameters for failure time T and censoring time C
