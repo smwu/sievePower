@@ -1,7 +1,3 @@
-source("markHR.R")
-source("covEst.R")
-library(survival)
-
 # 've' returns vaccine efficacy values given parameters 'alpha', 'beta', and 'gamma' 
 ve <- function(v, a, b, g){ 1-exp(a+b*v+g) }
 
@@ -166,7 +162,7 @@ getInferenceOneMC <- function(seed, trial, randRatio, IC, VEcoord, taumax, alpha
         for (j in 1:length(randRatio)){
           scenarioLabel <- paste0(trial[i],"_",randRatio[j],"_",IC[k],"_",VEcoord[l])
           out[[scenarioLabel]] <- simulOne(Np=Np, np=np, lambdaT=lambdaT, lambdaC=lambdaC, alpha=coeff$alpha, beta=coeff$beta, gamma=coeff$gamma, 
-                                           taumax=taumax, dens=dens, varName="mark", randomRatio=ifelse(randRatio=="2:1",2,1), seed=seed)
+                                           taumax=taumax, dens=dens, varName="mark", randomRatio=ifelse(randRatio[j]=="2:1",2,1), seed=seed)
         }
       }
     }
