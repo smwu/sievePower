@@ -1,7 +1,3 @@
-source("markHR.R")
-source("covEst.R")
-library(survival)
-
 # 've' returns vaccine efficacy values given parameters 'alpha', 'beta', and 'gamma' 
 ve <- function(v, a, b, g){ 1-exp(a+b*v+g) }
 
@@ -55,7 +51,7 @@ getAlphaBetaGamma <- function(markVE, dens, varName){
   # 'dens' is the output object from the 'npudens' function in the 'np' package
   # 'varName' is the variable name used in the formula in 'npudensbw'
   # 'randomRatio' is the randomization ratio of treatment to placebo (e.g. '2' for 2:1 treatment:placebo randomization)
-simulOne <- function(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, varName, randomRatio){
+simulOne <- function(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, varName, randomRatio, seed){
   Z <- c(rep(0, Np), rep(1, randomRatio*Np))        # treatment group
   T0 <- rexp(Np, lambdaT)                           # failure times for placebo
   T1 <- rexp(randomRatio*Np, lambdaT*exp(gamma))    # failure times for vaccine
@@ -96,22 +92,83 @@ simulOne <- function(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens,
     vgammaHat <- drop(phReg$var) 
     covThG <- covEst(X,d,V,Z,thetaHat[1:2],thetaHat[3],gammaHat)
     
-    # 1-sided test of H0: VE(v)=VE vs. alternative that beta > 0
-    waldH0 <- thetaHat[2]/sqrt(vthetaHat[2,2])
-    waldH0.pval <- 1 - pnorm(waldH0)
-    
     # one-sided weighted Wald-type test of H00: VE(v)=0 vs alternatives where VE>0 and VE(v) is decreasing
     weighted.waldH00 <- (thetaHat[2]/vthetaHat[2,2] - gammaHat/vgammaHat)/
       sqrt(1/vthetaHat[2,2] + 1/vgammaHat - 2*covThG[2]/(vthetaHat[2,2]*vgammaHat))
     weighted.waldH00.pval <- 1 - pnorm(weighted.waldH00)
     
-    # 2-sided likelihood ratio test of the null hypothesis that beta=0 (constant VE curve)
+    # 1-sided test of H0: VE(v)=VE vs. alternative that beta > 0
+    waldH0 <- thetaHat[2]/sqrt(vthetaHat[2,2])
+    waldH0.pval <- 1 - pnorm(waldH0)
+    
+    # 2-sided likelihood ratio test of the null hypothesis H0: beta=0 (constant VE curve)
     lrBeta.pval <- LRtest(V[d==1],Z[d==1],thetaHat[-length(thetaHat)],thetaHat[length(thetaHat)])$pval
     
-    return( list(beta = beta, alpha = alpha, gamma = gamma, nInf0 = nInf0, nInf1 = nInf1, 
-                 weighted.waldH00.pval = weighted.waldH00.pval, waldH0.pval = waldH0.pval, lrBeta.pval = lrBeta.pval, 
-                 thetaHat = thetaHat[-length(thetaHat)], gammaHat = gammaHat))
+    return( list(nInf0 = nInf0, nInf1 = nInf1, alpha = alpha, beta = beta, gamma = gamma, alphaHat=thetaHat[1], 
+                 betaHat=thetaHat[2], gammaHat = gammaHat, H00waldP1sided = weighted.waldH00.pval, H0waldP1sided = waldH0.pval, 
+                 H0lrP2sided = lrBeta.pval))
   }
+}
+
+paste1 <- function(x, y){
+  return(paste0(x,"_",y))
+}
+
+# 'getInferenceOneMC' returns a matrix of p-values for every combination of the levels of (trial x randRatio x ICpcent x VEcoord) for a single MC iteration
+# 'seed' sets a random seed for data generation in 'simulOne'
+# 'trial' takes on character strings "704", "703", "704and703"
+# 'randRatio' takes on "2:1" and "1:1"
+# 'IC' takes on character strings "IC50" and "IC80"
+# 'VEcoord' takes on numeric values in [0,1] representing VE(log10(0.3))
+# 'taumax' is the follow-up time (in weeks)
+# 'alpha1sided' is a 1-sided alpha level
+# 'dataB', 'dataC', and 'dataBandC' are the data frames for 704, 703, and 704and703 calculations 
+getInferenceOneMC <- function(seed, trial, randRatio, IC, VEcoord, taumax, alpha1sided, dataB, dataC, dataBandC){
+  scenario <- c(outer(c(outer(c(outer(trial, randRatio, paste1)), IC, paste1)), VEcoord, paste1))
+  out <- vector("list", length=length(scenario))
+  names(out) <- scenario
+  
+  for (i in 1:length(trial)){
+    if (trial[i]=="704"){ 
+      data <- dataB
+      # 'Np' is number of subjects in placebo group
+      Np <- 900
+      # 'np' is the expected number of cases in placebo group
+      np <- 34
+    } else if (trial[i]=="703"){ 
+      data <- dataC
+      Np <- 634
+      np <- 34
+    } else {
+      data <- dataBandC
+      Np <- 900 + 634
+      np <- 68
+    }
+    
+    # rate parameters for failure time T and censoring time C
+    lambdaT <- (log(1 - (1 + 0.1*Np/np)*(np/Np)))/(-taumax*(1 + 0.1*Np/np))
+    lambdaC <- 0.1*Np/np*lambdaT
+    
+    for (k in 1:length(IC)){
+      mark <- data[,paste0(tolower(IC[k]),".geometric.mean.imputed.log10")]
+      
+      # nonparametric kernel density estimate of the mark variable
+      densbw <- npudensbw(~ mark, ckertype="epanechnikov")
+      dens <- npudens(densbw)
+      
+      for (l in 1:length(VEcoord)){
+        coeff <- getAlphaBetaGamma(VEcoord[l], dens, "mark")
+        
+        for (j in 1:length(randRatio)){
+          scenarioLabel <- paste0(trial[i],"_",randRatio[j],"_",IC[k],"_",VEcoord[l])
+          out[[scenarioLabel]] <- simulOne(Np=Np, np=np, lambdaT=lambdaT, lambdaC=lambdaC, alpha=coeff$alpha, beta=coeff$beta, gamma=coeff$gamma, 
+                                           taumax=taumax, dens=dens, varName="mark", randomRatio=ifelse(randRatio[j]=="2:1",2,1), seed=seed)
+        }
+      }
+    }
+  }
+  
+  return(out)
 }
 
 # 'calcPower' calculates power for the 1-sided Wald-type test of H00:VE(v)=0, the 1-sided Wald-type test of H0:VE(v)=VE,
@@ -137,7 +194,7 @@ calcPower <- function(index, simulations, Np, np, lambdaT, lambdaC, alpha, beta,
     }
     
     # 1-sided likelihood ratio test (serves as sanity check)
-    if ((result$lrBeta.pval <= alphaLR) & (result$thetaHat[2] > 0)) { 
+    if ((result$lrBeta.pval <= alphaLR) & (result$betaHat > 0)) { 
       power$LR[index] <- power$LR[index] + 1
     }
     
