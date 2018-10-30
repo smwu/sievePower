@@ -6,6 +6,7 @@ rm(list=ls(all=TRUE))
 dataDir <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
 # Ted, you obviously need to change 'codeDir' to wherever you have your local repo
 codeDir <- "h:/SCHARP/HVTN703/sievePower"
+outDir <- "h:/SCHARP/HVTN703/sievePower/Routput"
 
 library(survival)
 library(np)
@@ -17,7 +18,7 @@ dataB <- read.csv(file.path(dataDir, "catnap_vrc01_neut_b.csv"))
 dataC <- read.csv(file.path(dataDir, "catnap_vrc01_neut_c.csv"))
 dataBandC <- read.csv(file.path(dataDir, "catnap_vrc01_neut_all.csv"))
 
-nMC <- 1
+nMC <- 1000
 results <- lapply(1:nMC, getInferenceOneMC, 
                   trial=c("704", "703", "704and703"), 
                   randRatio=c("2:1", "1:1"), 
@@ -29,22 +30,47 @@ results <- lapply(1:nMC, getInferenceOneMC,
                   dataC=dataC,
                   dataBandC=dataBandC)
 
-save(results, file="results.RData")
+save(results, file=file.path(outDir, "results.RData"))
 
+# load the output list named 'res' from the parallelized version of the above 'lapply'
+load(file.path(outDir, "results.RData"))
 
+# calculate power estimates from 'results' and store them in data frame 'power'
+trial <- c("704", "703", "704and703")
+randRatio <- c("2:1", "1:1")
+IC <- c("IC50", "IC80")
+VEcoord <- c(0, 0.3, 0.5, 0.7, 0.9)
+# these are the scenario labels in 'results'
+scenario <- c(outer(c(outer(c(outer(trial, randRatio, paste1)), IC, paste1)), VEcoord, paste1))
 
-power <- power/simulations
-write.csv(power, "power2to1.csv")
+power <- as.data.frame(matrix(NA, nrow=length(scenario), ncol=3))
+# use the same labels in the data frame with power estimates
+rownames(power) <- scenario
+colnames(power) <- c("H00wald1sidedPower", "H0wald1sidedPower", "H0lr1sidedPower")
 
-power1to1 <- power1to1/simulations
-write.csv(power1to1, "power1to1.csv")
+# these are the p-value labels in 'res' corresponding to colnames(power)
+pvalLabels <- c("H00waldP1sided", "H0waldP1sided", "H0lrP2sided")
+for (i in 1:NROW(power)){
+  for (j in 1:NCOL(power)){
+    pvals <- sapply(res, function(resultsOneMC, scenarioLabel, pvalLabel){ 
+      p <- resultsOneMC[[scenarioLabel]][[pvalLabel]]
+      return(ifelse(is.null(p), NA, p))
+      }, scenarioLabel=scenario[i], pvalLabel=pvalLabels[j])
+    
+    if (j<3){  # for the Wald tests
+      power[i,j] <- mean(pvals<=0.05, na.rm=TRUE)
+    } else {  # for the LR test
+      # we also need to extract the point estimates of beta
+      betaHats <- sapply(res, function(resultsOneMC, scenarioLabel){ 
+        b <- resultsOneMC[[scenarioLabel]][["betaHat"]]
+        return(ifelse(is.null(b), NA, b))
+        }, scenarioLabel=scenario[i])
+      power[i,j] <- mean((pvals<=0.1) & (betaHats>0), na.rm=TRUE)
+    }
+  }
+}
 
-
-
-
-# # the below powers should be comparable
-# mean((lrBeta.pvals <= 0.1) & (thetaHat[2] > 0))  # p-val is below 2-sided alpha and point estimate is in right direction
-# mean(waldH00.pvals <= 0.05)  # p-val is below 1-sided alpha
+write.table(power, file=file.path(outDir, "power.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
 
 
 

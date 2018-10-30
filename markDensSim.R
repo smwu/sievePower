@@ -44,13 +44,13 @@ getAlphaBetaGamma <- function(markVE, dens, varName){
 # `simulOne` simulates data and runs 1-sided Wald-type tests for H00: VE(v)=0 and H0: VE(v)=VE and a likelihood ratio test for H0: VE(v)=VE 
 # The function returns a list containing the simulated mark variable, the p-values of the hypothesis tests, 
 # and the parameters estimated in the mark-density ratio and the marginal hazard function 
-  # 'Np' is number of subjects in placebo group
-  # 'np' number of cases in placebo group (fixed at around 34)
-  # 'markVE' is the upper vaccine efficacy cutoff, defined as the vaccine efficacy achieved when the mark variable equals 0.3
-  # 'taumax' is the follow-up time (in weeks)
-  # 'dens' is the output object from the 'npudens' function in the 'np' package
-  # 'varName' is the variable name used in the formula in 'npudensbw'
-  # 'randomRatio' is the randomization ratio of treatment to placebo (e.g. '2' for 2:1 treatment:placebo randomization)
+# 'Np' is number of subjects in placebo group
+# 'np' number of cases in placebo group (fixed at around 34)
+# 'markVE' is the upper vaccine efficacy cutoff, defined as the vaccine efficacy achieved when the mark variable equals 0.3
+# 'taumax' is the follow-up time (in weeks)
+# 'dens' is the output object from the 'npudens' function in the 'np' package
+# 'varName' is the variable name used in the formula in 'npudensbw'
+# 'randomRatio' is the randomization ratio of treatment to placebo (e.g. '2' for 2:1 treatment:placebo randomization)
 simulOne <- function(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, varName, randomRatio, seed){
   Z <- c(rep(0, Np), rep(1, randomRatio*Np))        # treatment group
   T0 <- rexp(Np, lambdaT)                           # failure times for placebo
@@ -69,10 +69,10 @@ simulOne <- function(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens,
   V1 <- sample(Xpoints, size=randomRatio*Np, prob=prob1)  # sample with replacement with probability prob1 to simulate mark in vaccinees
   V <- c(V0, V1)                                    # mark variable
   V <- ifelse(V < log10(0.00076), log10(0.00076), ifelse(V <= log10(50), V, log10(50)))  # mark variable with extreme values censored
-    
-    # Vraw0 <- rexp(Np, lambdaVraw)  # raw mark in placebos
-    # Vraw1 <- rexp(2*Np, (lambdaVraw - beta))  # raw mark in vaccinees
-    # Vraw <- c(Vraw0,Vraw1)
+  
+  # Vraw0 <- rexp(Np, lambdaVraw)  # raw mark in placebos
+  # Vraw1 <- rexp(2*Np, (lambdaVraw - beta))  # raw mark in vaccinees
+  # Vraw <- c(Vraw0,Vraw1)
   
   # calculate mark density ratio
   # mark is only observed for cases
@@ -176,9 +176,9 @@ getInferenceOneMC <- function(seed, trial, randRatio, IC, VEcoord, taumax, alpha
 # Given a dataframe, 'power', with columns 'WaldH00', 'WaldH0', 'LR', and 'twosidedLR' and each row representing a 
 # different scenario (e.g., AMP-B, VE(0.3)=0.7, IC50 could characterize one scenario), the function modifies the 
 # dataframe and returns the modified dataframe. 
-  # 'index' is the index of the row (and scenario) that will be modified and contain the new power calculations
-  # 'alphaLR' is the type 1 error rate for the likelihood ratio tests
-  # 'alphaWald' is the type 1 error rate for the Wald-type tests
+# 'index' is the index of the row (and scenario) that will be modified and contain the new power calculations
+# 'alphaLR' is the type 1 error rate for the likelihood ratio tests
+# 'alphaWald' is the type 1 error rate for the Wald-type tests
 calcPower <- function(index, simulations, Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, varName, alphaLR, alphaWald, power, randomRatio) {
   for (i in 1:simulations) {
     result <- simulOne(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens, varName, randomRatio)
