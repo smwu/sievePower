@@ -1,112 +1,66 @@
-rm(list=ls(all=TRUE))
+library("rslurm")
 
-dataDir <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
-# Ted, you obviously need to change 'codeDir' to wherever you have your local repo
-codeDir <- "h:/SCHARP/HVTN703/sievePower"
-outDir <- "h:/SCHARP/HVTN703/sievePower/Routput"
-
-library(survival)
 library(np)
-source(file.path(codeDir, "markHR.R"))
-source(file.path(codeDir, "covEst.R"))
-source(file.path(codeDir, "markDensSim.R"))
+library(survival)
+
+source("markDensSim_tholzman_20181029.R")
+source("../markHR.R")
+source("../covEst.R")
+
+# load data
+#dataDir <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
+dataDir <- "../data"
 
 mascola <- read.csv(file.path(dataDir,"Mascola_Acute_Clade_C_VRC01.csv"), header=TRUE, stringsAsFactors = FALSE)
-mascola$IC50[mascola$IC50==">10"] <- "20"
-mascola$IC80[mascola$IC80==">10"] <- "20"
+mascola$IC50[mascola$IC50==">10"] <- 20
+mascola$IC80[mascola$IC80==">10"] <- 20
 
+#colnames(mascola) <-
+#    c("ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
+
+#new line from Stephanie
 colnames(mascola) <- c("ID", "ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
-mascola$ic50.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic50.geometric.mean.imputed.log10))
-mascola$ic80.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic80.geometric.mean.imputed.log10))
+mascola$ic50.geometric.mean.imputed.log10 <- as.numeric(mascola$ic50.geometric.mean.imputed.log10)
+mascola$ic80.geometric.mean.imputed.log10 <- as.numeric(mascola$ic80.geometric.mean.imputed.log10)
+#nMC <- 1
 
-nMC <- 1
-results <- lapply(1:nMC, getInferenceOneMC, 
-                  trial="703", 
-                  randRatio=c("2:1", "1:1"), 
-                  IC=c("IC50", "IC80"),
-                  VEcoord=c(0, 0.3, 0.5, 0.7, 0.9),
-                  taumax=80,
-                  alpha1sided=0.05,
-                  dataC=mascola)
-save(results, file="resultsMascolaCladeCpanel.RData")
+nMC <- 1000
 
-# load the output list named 'res' from the parallelized version of the above 'lapply'
-load(file.path(outDir, "resultsMascolaCladeCpanel.RData"))
-res <- resultsCladeC
-rm(resultsCladeC)
+dataC <- mascola
+dataB <- mascola
+dataBandC <- mascola
 
-# calculate power estimates from 'results' and store them in data frame 'power'
-trial <- "703"
-randRatio <- c("2:1", "1:1")
-IC <- c("IC50", "IC80")
-VEcoord <- c(0, 0.3, 0.5, 0.7, 0.9)
-# these are the scenario labels in 'results'
-scenario <- c(outer(c(outer(c(outer(trial, randRatio, paste1)), IC, paste1)), VEcoord, paste1))
+pars <- data.frame(
+    seed=seq(1,nMC)
+    )
+pars$trial <- rep("703",times=nMC)
+pars$randRatio <- rep(I(list(c("2:1", "1:1"))),times=nMC)
+pars$IC <- rep(I(list(c("IC50", "IC80"))),times=nMC)
+pars$VEcoord <- rep(I(list(c(0, 0.3, 0.5, 0.7, 0.9))),times=nMC)
+pars$taumax <- rep(80,times=nMC)
+pars$alpha1sided <- rep(0.05,times=nMC)
 
-power <- as.data.frame(matrix(NA, nrow=length(scenario), ncol=3))
-# use the same labels in the data frame with power estimates
-rownames(power) <- scenario
-colnames(power) <- c("H00wald1sidedPower", "H0wald1sidedPower", "H0lr1sidedPower")
+results <- slurm_apply(
+    getInferenceOneMC,
+    pars,
+    add_objects=c("dataB","dataC","dataBandC"),
+    jobname="markPowerCladeC",
+    nodes=1000,
+    cpus_per_node=1,
+    submit=FALSE
+    )
 
-# these are the p-value labels in 'res' corresponding to colnames(power)
-pvalLabels <- c("H00waldP1sided", "H0waldP1sided", "H0lrP2sided")
-for (i in 1:NROW(power)){
-  for (j in 1:NCOL(power)){
-    pvals <- sapply(res, function(resultsOneMC, scenarioLabel, pvalLabel){ 
-      p <- resultsOneMC[[scenarioLabel]][[pvalLabel]]
-      return(ifelse(is.null(p), NA, p))
-    }, scenarioLabel=scenario[i], pvalLabel=pvalLabels[j])
-    
-    if (j<3){  # for the Wald tests
-      power[i,j] <- mean(pvals<=0.05, na.rm=TRUE)
-    } else {  # for the LR test
-      # we also need to extract the point estimates of beta
-      betaHats <- sapply(res, function(resultsOneMC, scenarioLabel){ 
-        b <- resultsOneMC[[scenarioLabel]][["betaHat"]]
-        return(ifelse(is.null(b), NA, b))
-      }, scenarioLabel=scenario[i])
-      power[i,j] <- mean((pvals<=0.1) & (betaHats>0), na.rm=TRUE)
-    }
-  }
-}
 
-write.table(power, file=file.path(outDir, "powerMascolaCladeCpanel.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
-
-# sanity checks
-# check the numbers of failed runs
-for (i in 1:NROW(power)){
-  for (j in 1:NCOL(power)){
-    pvals <- sapply(res, function(resultsOneMC, scenarioLabel, pvalLabel){ 
-      p <- resultsOneMC[[scenarioLabel]][[pvalLabel]]
-      return(ifelse(is.null(p), NA, p))
-    }, scenarioLabel=scenario[i], pvalLabel=pvalLabels[j])
-    cat(i,", ",j,", ",sum(is.na(pvals)),"\n", sep="")
-  }
-}
-
-# check the distribution of the number of placebo infections
-for (i in 1:NROW(power)){
-  for (j in 1:NCOL(power)){
-    nInf0 <- sapply(res, function(resultsOneMC, scenarioLabel){ 
-      ninf <- resultsOneMC[[scenarioLabel]][["nInf0"]]
-      return(ifelse(is.null(ninf), NA, ninf))
-    }, scenarioLabel=scenario[i])
-    cat(i,", ",j,"\n", sep="")
-    print(summary(nInf0))
-  }
-}
-
-# check the distribution of the number of VRC01 infections
-for (i in 1:NROW(power)){
-  for (j in 1:NCOL(power)){
-    nInf1 <- sapply(res, function(resultsOneMC, scenarioLabel){ 
-      ninf <- resultsOneMC[[scenarioLabel]][["nInf1"]]
-      return(ifelse(is.null(ninf), NA, ninf))
-    }, scenarioLabel=scenario[i])
-    cat(i,", ",j,"\n", sep="")
-    print(summary(nInf1))
-  }
-}
+#results <- lapply(1:nMC, getInferenceOneMC, 
+#                  trial="703", 
+#                  randRatio=c("2:1", "1:1"), 
+#                  IC=c("IC50", "IC80"),
+#                  VEcoord=c(0, 0.3, 0.5, 0.7, 0.9),
+#                  taumax=80,
+#                  alpha1sided=0.05,
+#                  dataC=mascola)
+print(results)
+save(results, file="resultsCladeC.RData")
 
 
 # #===============================================================
