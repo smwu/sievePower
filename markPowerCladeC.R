@@ -11,7 +11,10 @@ mascola <- read.csv(file.path(dataDir,"Mascola_Acute_Clade_C_VRC01.csv"), header
 mascola$IC50[mascola$IC50==">10"] <- "20"
 mascola$IC80[mascola$IC80==">10"] <- "20"
 
-colnames(mascola) <- c("ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
+colnames(mascola) <- c("ID", "ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
+mascola$ic50.geometric.mean.imputed.log10 <- as.numeric(mascola$ic50.geometric.mean.imputed.log10)
+mascola$ic80.geometric.mean.imputed.log10 <- as.numeric(mascola$ic80.geometric.mean.imputed.log10)
+
 nMC <- 1
 results <- lapply(1:nMC, getInferenceOneMC, 
                   trial="703", 
