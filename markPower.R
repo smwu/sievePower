@@ -18,6 +18,7 @@ dataB <- read.csv(file.path(dataDir, "catnap_vrc01_neut_b.csv"))
 dataC <- read.csv(file.path(dataDir, "catnap_vrc01_neut_c.csv"))
 dataBandC <- read.csv(file.path(dataDir, "catnap_vrc01_neut_all.csv"))
 
+# THIS CODE WAS PARALLELIZED BY TED HOLZMAN AND RUN ON GIZMO R VERSION 3.3.3
 nMC <- 1000
 results <- lapply(1:nMC, getInferenceOneMC, 
                   trial=c("704", "703", "704and703"), 
@@ -31,6 +32,7 @@ results <- lapply(1:nMC, getInferenceOneMC,
                   dataBandC=dataBandC)
 
 save(results, file=file.path(outDir, "results.RData"))
+# END OF PARALLELIZED CODE
 
 # load the output list named 'res' from the parallelized version of the above 'lapply'
 load(file.path(outDir, "results.RData"))
@@ -72,6 +74,41 @@ for (i in 1:NROW(power)){
 
 write.table(power, file=file.path(outDir, "power.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
 
+# sanity checks
+# check the numbers of failed runs
+for (i in 1:NROW(power)){
+  for (j in 1:NCOL(power)){
+    pvals <- sapply(res, function(resultsOneMC, scenarioLabel, pvalLabel){ 
+      p <- resultsOneMC[[scenarioLabel]][[pvalLabel]]
+      return(ifelse(is.null(p), NA, p))
+    }, scenarioLabel=scenario[i], pvalLabel=pvalLabels[j])
+    cat(i,", ",j,", ",sum(is.na(pvals)),"\n", sep="")
+  }
+}
+
+# check the distribution of the number of placebo infections
+for (i in 1:NROW(power)){
+  for (j in 1:NCOL(power)){
+    nInf0 <- sapply(res, function(resultsOneMC, scenarioLabel){ 
+      ninf <- resultsOneMC[[scenarioLabel]][["nInf0"]]
+      return(ifelse(is.null(ninf), NA, ninf))
+    }, scenarioLabel=scenario[i])
+    cat(i,", ",j,"\n", sep="")
+    print(summary(nInf0))
+  }
+}
+
+# check the distribution of the number of VRC01 infections
+for (i in 1:NROW(power)){
+  for (j in 1:NCOL(power)){
+    nInf1 <- sapply(res, function(resultsOneMC, scenarioLabel){ 
+      ninf <- resultsOneMC[[scenarioLabel]][["nInf1"]]
+      return(ifelse(is.null(ninf), NA, ninf))
+    }, scenarioLabel=scenario[i])
+    cat(i,", ",j,"\n", sep="")
+    print(summary(nInf1))
+  }
+}
 
 
 #========================================== Miscellaneous==========================
