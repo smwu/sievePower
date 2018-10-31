@@ -35,7 +35,11 @@ save(results, file=file.path(outDir, "results.RData"))
 # END OF PARALLELIZED CODE
 
 # load the output list named 'res' from the parallelized version of the above 'lapply'
-load(file.path(outDir, "results.RData"))
+# load(file.path(outDir, "results.RData"))
+# a re-run with replace=TRUE fix in the sampling of V0 and V1 in 'simulOne'
+load(file.path(outDir, "results_replaceFix.RData"))
+res <- results_fixed_dens_function
+rm(results_fixed_dens_function)
 
 # calculate power estimates from 'results' and store them in data frame 'power'
 trial <- c("704", "703", "704and703")
@@ -73,6 +77,9 @@ for (i in 1:NROW(power)){
 }
 
 write.table(power, file=file.path(outDir, "power.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
+
+# comparison with the first run
+power <- read.csv(file.path(outDir, "power.csv"), header=TRUE, sep=" ")
 
 # sanity checks
 # check the numbers of failed runs

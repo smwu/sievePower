@@ -31,9 +31,13 @@ results <- lapply(1:nMC, getInferenceOneMC,
 save(results, file="resultsMascolaCladeCpanel.RData")
 
 # load the output list named 'res' from the parallelized version of the above 'lapply'
-load(file.path(outDir, "resultsMascolaCladeCpanel.RData"))
-res <- resultsCladeC
-rm(resultsCladeC)
+# load(file.path(outDir, "resultsMascolaCladeCpanel.RData"))
+# res <- resultsCladeC
+# rm(resultsCladeC)
+# a re-run with replace=TRUE fix in the sampling of V0 and V1 in 'simulOne'
+load(file.path(outDir, "resultsMascolaCladeCpanel_5000runs_replaceFix.RData"))
+res <- results_cladec_5000
+rm(results_cladec_5000)
 
 # calculate power estimates from 'results' and store them in data frame 'power'
 trial <- "703"
@@ -71,6 +75,9 @@ for (i in 1:NROW(power)){
 }
 
 write.table(power, file=file.path(outDir, "powerMascolaCladeCpanel.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
+
+# comparison with the first run
+power <- read.csv(file.path(outDir, "powerMascolaCladeCpanel.csv"), header=TRUE, sep=" ")
 
 # sanity checks
 # check the numbers of failed runs
