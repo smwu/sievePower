@@ -65,8 +65,8 @@ simulOne <- function(Np, np, lambdaT, lambdaC, alpha, beta, gamma, taumax, dens,
   Xpoints <- seq(-3,3,len=25000)                    # fine grid of points ranging from -3 to 3 to be sampled from
   prob0 <- f0(Xpoints, dens, varName)               # sampling probability for placebos, using nonparametric density estimates
   prob1 <- f1(Xpoints, dens, varName, alpha, beta)  # sampling probabiliy for vaccinees, using nonparametric density estimates 
-  V0 <- sample(Xpoints, size=Np, prob=prob0)        # sample with replacement with probability prob0 to simulate mark in placebos 
-  V1 <- sample(Xpoints, size=randomRatio*Np, prob=prob1)  # sample with replacement with probability prob1 to simulate mark in vaccinees
+  V0 <- sample(Xpoints, size=Np, prob=prob0, replace=TRUE)        # sample with replacement with probability prob0 to simulate mark in placebos 
+  V1 <- sample(Xpoints, size=randomRatio*Np, prob=prob1, replace=TRUE)  # sample with replacement with probability prob1 to simulate mark in vaccinees
   V <- c(V0, V1)                                    # mark variable
   V <- ifelse(V < log10(0.00076), log10(0.00076), ifelse(V <= log10(50), V, log10(50)))  # mark variable with extreme values censored
   
