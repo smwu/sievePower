@@ -12,8 +12,8 @@ source(file.path(codeDir, "covEst.R"))
 source(file.path(codeDir, "markDensSim.R"))
 
 mascola <- read.csv(file.path(dataDir,"Mascola_Acute_Clade_C_VRC01.csv"), header=TRUE, stringsAsFactors = FALSE)
-mascola$IC50[mascola$IC50==">10"] <- "20"
-mascola$IC80[mascola$IC80==">10"] <- "20"
+mascola$IC50[mascola$IC50==">10"] <- 20
+mascola$IC80[mascola$IC80==">10"] <- 20
 
 colnames(mascola) <- c("ID", "ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
 mascola$ic50.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic50.geometric.mean.imputed.log10))
@@ -74,7 +74,7 @@ for (i in 1:NROW(power)){
   }
 }
 
-write.table(power, file=file.path(outDir, "powerMascolaCladeCpanel.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
+write.table(power, file=file.path(outDir, "powerMascolaCladeCpanel_replaceFix.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
 
 # comparison with the first run
 power <- read.csv(file.path(outDir, "powerMascolaCladeCpanel.csv"), header=TRUE, sep=" ")
