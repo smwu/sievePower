@@ -76,7 +76,7 @@ for (i in 1:NROW(power)){
   }
 }
 
-write.table(power, file=file.path(outDir, "power.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
+write.table(power, file=file.path(outDir, "power_replaceFix.csv"), row.names=TRUE, col.names=TRUE, quote=FALSE)
 
 # comparison with the first run
 power <- read.csv(file.path(outDir, "power.csv"), header=TRUE, sep=" ")
