@@ -1,7 +1,6 @@
 ---
 title: "AMP Power Calculations"
-author: "Stephanie Wu"
-date: "October 28, 2018"
+date: "October 31, 2018"
 output:
   pdf_document: default
   html_document: default
@@ -16,7 +15,7 @@ options(np.messages=FALSE)
 dataFile <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
 source(file.path(dataFile, "sievePower/markDensSim.R"))
 
-power <- read.csv(file.path(dataFile, "sievePower/Routput/power.csv"), sep=" ")
+power <- read.csv(file.path(dataFile, "sievePower/Routput/power_replaceFix.csv"), sep=" ")
 power <- signif(power, 2)
 
 
@@ -338,23 +337,4 @@ for (i in 1:length(markVE)) {
 }  
 
 plotPower(distGrid, trueVE, "IC80", "704and703", "1:1")
-```
-
-## Boxplots and Histograms
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
-#boxplots
-AMP704IC50 <- subB$ic50.geometric.mean.imputed.log10
-AMP704IC80 <- subB$ic80.geometric.mean.imputed.log10
-AMP703IC50 <- subC$ic50.geometric.mean.imputed.log10
-AMP703IC80 <- subC$ic80.geometric.mean.imputed.log10
-AMP704and703IC50 <- subPooled$ic50.geometric.mean.imputed.log10
-AMP704and703IC80 <- subPooled$ic80.geometric.mean.imputed.log10
-combined <- cbind(AMP704IC50, AMP704IC80, AMP703IC50, AMP703IC80, AMP704and703IC50, AMP704and703IC80)
-
-boxplotdata <- melt(combined)
-colnames(boxplotdata) <- c("number", "Scenario", "log10Value")
-ggplot(boxplotdata, aes(x=Scenario, y=log10Value, fill=Scenario)) + geom_boxplot() + facet_wrap(~Scenario, scale="free") + theme(text = element_text(size=15), legend.text = element_text(size=14), axis.title = element_text(size=17))
-
-ggplot(boxplotdata, aes(x=log10Value, y=..count../sum(..count..), fill=Scenario)) + geom_histogram() + facet_wrap(~Scenario) + ylab("Density")+ theme(text = element_text(size=15), legend.text = element_text(size=14), axis.title = element_text(size=17))
 ```

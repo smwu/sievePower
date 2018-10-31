@@ -1,0 +1,166 @@
+---
+title: "AMP Power Calculations for Mascola Clade C Panel"
+date: "October 31, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(reshape2)
+library(np)
+options(np.messages=FALSE)
+
+dataFile <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
+source(file.path(dataFile, "sievePower/markDensSim.R"))
+
+# load power data frame
+power <- read.csv(file.path(dataFile, "sievePower/Routput/powerMascolaCladeCpanel_replaceFix.csv"), sep=" ")
+power <- signif(power, 2)
+
+# load and prepare Clade C data
+mascola <- read.csv(file.path(dataFile,"Mascola_Acute_Clade_C_VRC01.csv"), header=TRUE, stringsAsFactors = FALSE)
+mascola$IC50[mascola$IC50==">10"] <- "20"
+mascola$IC80[mascola$IC80==">10"] <- "20"
+colnames(mascola) <- c("ID", "ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
+mascola$ic50.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic50.geometric.mean.imputed.log10))
+mascola$ic80.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic80.geometric.mean.imputed.log10))
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+plotPower <- function(distGrid, trueVE, IC, trial, randRatio) {
+  scenario <- paste0(trial,"_",randRatio,"_", IC)
+  data <- data.frame(cbind(distGrid, trueVE[,1], trueVE[,2], trueVE[,3], trueVE[,4], trueVE[,5]))
+  colnames(data) <- c("distGrid", "0", "0.3", "0.5", "0.7", "0.9")
+  newData <- melt(data, id="distGrid", variable.name = "VE_Cutoff", value.name = "trueVE")
+  newData$Power <- ifelse(newData$VE_Cutoff==0, paste0("PE(v)=0: ", power[paste0(scenario,"_0"), "H00wald1sidedPower"], ", \nPE(v)=PE: ", power[paste0(scenario,"_0"),"H0lr1sidedPower"]), 
+                          ifelse(newData$VE_Cutoff==0.3,paste0("PE(v)=0: ", power[paste0(scenario,"_0.3"), "H00wald1sidedPower"], ", \nPE(v)=PE: ", power[paste0(scenario,"_0.3"),"H0lr1sidedPower"]),
+                                 ifelse(newData$VE_Cutoff==0.5, paste0("PE(v)=0: ", power[paste0(scenario,"_0.5"), "H00wald1sidedPower"], ", \nPE(v)=PE: ", power[paste0(scenario,"_0.5"),"H0lr1sidedPower"]), 
+                                        ifelse(newData$VE_Cutoff==0.7, paste0("PE(v)=0: ", power[paste0(scenario,"_0.7"), "H00wald1sidedPower"], ", \nPE(v)=PE: ", power[paste0(scenario,"_0.7"),"H0lr1sidedPower"]), paste0("PE(v)=0: ", power[paste0(scenario,"_0.9"), "H00wald1sidedPower"], ", \nPE(v)=PE: ", power[paste0(scenario,"_0.9"),"H0lr1sidedPower"])))))
+  
+  title <- paste0(ifelse(trial=="703", "HVTN 703/HPTN 081", ifelse(trial=="704", "HVTN 704/HPTN 085", "Pooled AMP")), ifelse(randRatio=="2:1", " Pooled VRC01", " 30 ug/ml"))
+  colors <- gg_color_hue(5)
+  ggplot(newData, aes(x=distGrid, y=trueVE, color=Power)) + geom_line(size=1.2) + 
+    scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
+    scale_y_continuous(breaks = seq(0,1,0.2)) + xlab(paste0(IC," (ug/ml)")) + ylab("Prevention Efficacy against HIV-1 Infection (%)") +
+    ggtitle(paste0(title, " vs. Placebo")) + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
+    theme(plot.title = element_text(size=22), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
+          axis.text = element_text(size=14), legend.text = element_text(size=15), legend.title = element_text(size=16), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
+}
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+# initialize mark grid and vaccine efficacy matrix
+distGrid <- seq(log10(0.00076), log10(50), length = 100)
+
+# different cutoff scenarios for mark VE
+markVE = c(0, 0.3, 0.5, 0.7, 0.9) 
+
+# initialize parameters
+beta <- numeric(5)
+alpha <- numeric(5)
+phi <- numeric(5)
+gamma <- numeric(5)
+trueVE <- matrix(nrow=length(distGrid), ncol=5)
+truePE <- numeric(5)
+```
+
+## Pooled VRC01 vs. Placebo
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# Mascola IC50 Pooled VRC01 vs. Placebo
+log10ic50 <- mascola$ic50.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  coefs <- getAlphaBetaGamma(markVE[i], dens, varName="log10ic50")
+  beta[i] <- coefs$beta
+  alpha[i] <- coefs$alpha
+  gamma[i] <- coefs$gamma
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+plotPower(distGrid, trueVE, "IC50", "703", "2:1")
+
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# Mascola IC50 Pooled VRC01 vs. Placebo
+log10ic80 <- mascola$ic80.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  beta[i] <- log(1-markVE[i])/log10(0.3/50)
+  alpha[i] <- uniroot(intf1, interval=c(-20,20), dens=dens, varName="log10ic80", beta=beta[i])$root  
+  phi[i] <- (log(1 - markVE[i]) - log10(0.3*50)*beta[i])/2  
+  gamma[i] <- phi[i] - alpha[i]
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+for (i in 1:length(markVE)) {
+  coefs <- getAlphaBetaGamma(markVE[i], dens, varName="log10ic80")
+  beta[i] <- coefs$beta
+  alpha[i] <- coefs$alpha
+  gamma[i] <- coefs$gamma
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+plotPower(distGrid, trueVE, "IC80", "703", "2:1")
+```
+
+## 30 ug/ml vs. Placebo
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# Mascola IC50 30ug/ml vs. Placebo
+log10ic50 <- mascola$ic50.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic50, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  coefs <- getAlphaBetaGamma(markVE[i], dens, varName="log10ic50")
+  beta[i] <- coefs$beta
+  alpha[i] <- coefs$alpha
+  gamma[i] <- coefs$gamma
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+plotPower(distGrid, trueVE, "IC50", "703", "1:1")
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# Mascola IC50 30ug/ml vs. Placebo
+log10ic80 <- mascola$ic80.geometric.mean.imputed.log10
+
+# nonparametric density estimation using the package 'np'
+densbw <- npudensbw(~ log10ic80, ckertype="epanechnikov")  # bandwidth selection
+dens <- npudens(densbw)
+
+for (i in 1:length(markVE)) {
+  coefs <- getAlphaBetaGamma(markVE[i], dens, varName="log10ic80")
+  beta[i] <- coefs$beta
+  alpha[i] <- coefs$alpha
+  gamma[i] <- coefs$gamma
+  trueVE[,i] <- ve(distGrid, alpha[i], beta[i], gamma[i])
+  truePE[i] <- 1-exp(gamma[i])
+}  
+
+plotPower(distGrid, trueVE, "IC80", "703", "1:1")
+```
