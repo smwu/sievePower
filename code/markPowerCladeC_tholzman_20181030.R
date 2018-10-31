@@ -12,16 +12,16 @@ source("../covEst.R")
 dataDir <- "../data"
 
 mascola <- read.csv(file.path(dataDir,"Mascola_Acute_Clade_C_VRC01.csv"), header=TRUE, stringsAsFactors = FALSE)
-mascola$IC50[mascola$IC50==">10"] <- 20
-mascola$IC80[mascola$IC80==">10"] <- 20
+mascola$IC50[mascola$IC50==">10"] <- "20"
+mascola$IC80[mascola$IC80==">10"] <- "20"
 
 #colnames(mascola) <-
 #    c("ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
 
 #new line from Stephanie
 colnames(mascola) <- c("ID", "ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
-mascola$ic50.geometric.mean.imputed.log10 <- as.numeric(mascola$ic50.geometric.mean.imputed.log10)
-mascola$ic80.geometric.mean.imputed.log10 <- as.numeric(mascola$ic80.geometric.mean.imputed.log10)
+mascola$ic50.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic50.geometric.mean.imputed.log10))
+mascola$ic80.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic80.geometric.mean.imputed.log10))
 #nMC <- 1
 
 nMC <- 1000
@@ -44,7 +44,7 @@ results <- slurm_apply(
     getInferenceOneMC,
     pars,
     add_objects=c("dataB","dataC","dataBandC"),
-    jobname="markPowerCladeC",
+    jobname="markPowerCladeCpanel",
     nodes=1000,
     cpus_per_node=1,
     submit=FALSE
@@ -60,7 +60,7 @@ results <- slurm_apply(
 #                  alpha1sided=0.05,
 #                  dataC=mascola)
 print(results)
-save(results, file="resultsCladeC.RData")
+save(results, file="resultsMascolaCladeCpanel.RData")
 
 
 # #===============================================================
