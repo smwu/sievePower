@@ -123,7 +123,10 @@ paste1 <- function(x, y){
 # 'taumax' is the follow-up time (in weeks)
 # 'alpha1sided' is a 1-sided alpha level
 # 'dataB', 'dataC', and 'dataBandC' are the data frames for 704, 703, and 704and703 calculations 
-getInferenceOneMC <- function(seed, trial, randRatio, IC, VEcoord, taumax, alpha1sided, dataB, dataC, dataBandC){
+
+#getInferenceOneMC <- function(seed, trial, randRatio, IC, VEcoord, taumax, alpha1sided, dataB, dataC, dataBandC){
+#removed last three arguments for the sake of rslurm
+getInferenceOneMC <- function(seed, trial, randRatio, IC, VEcoord, taumax, alpha1sided){
   scenario <- c(outer(c(outer(c(outer(trial, randRatio, paste1)), IC, paste1)), VEcoord, paste1))
   out <- vector("list", length=length(scenario))
   names(out) <- scenario
