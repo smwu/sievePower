@@ -34,14 +34,14 @@ plotPower <- function(distGrid, trueVE, IC, trial, randRatio) {
                                  ifelse(newData$VE_Cutoff==0.5, paste0("PE(v)=0: ", power[paste0(scenario,"_0.5"), "H00wald1sidedPower"], ", \nPE(v)=PE: ", power[paste0(scenario,"_0.5"),"H0lr1sidedPower"]), 
                                         ifelse(newData$VE_Cutoff==0.7, paste0("PE(v)=0: ", power[paste0(scenario,"_0.7"), "H00wald1sidedPower"], ", \nPE(v)=PE: ", power[paste0(scenario,"_0.7"),"H0lr1sidedPower"]), paste0("PE(v)=0: ", power[paste0(scenario,"_0.9"), "H00wald1sidedPower"], ", \nPE(v)=PE: ", power[paste0(scenario,"_0.9"),"H0lr1sidedPower"])))))
   
-  title <- paste0(ifelse(trial=="703", "HVTN 703/HPTN 081", ifelse(trial=="704", "HVTN 704/HPTN 085", "Pooled AMP")), ifelse(randRatio=="2:1", " Pooled VRC01", " 30 ug/ml"))
+  title <- paste0(ifelse(trial=="703", "HVTN 703/HPTN 081", ifelse(trial=="704", "HVTN 704/HPTN 085", "Pooled AMP")), ifelse(randRatio=="2:1", " Pooled VRC01", " 30 mg/kg"))
   colors <- gg_color_hue(5)
   ggplot(newData, aes(x=distGrid, y=trueVE, color=Power)) + geom_line(size=1.2) + 
     scale_x_continuous(breaks=log10(c(0.00076, 0.1, 0.3, 1, 3, 10, 50)), labels = c(0.00076, 0.1, 0.3, 1, 3, 10, 50)) +
     scale_y_continuous(breaks = seq(0,1,0.2)) + xlab(paste0(IC," (ug/ml)")) + ylab("Prevention Efficacy against HIV-1 Infection (%)") +
     ggtitle(paste0(title, " vs. Placebo")) + geom_hline(yintercept = truePE, linetype = "dashed",color=colors) + 
-    theme(plot.title = element_text(size=22), axis.title = element_text(size = 18), axis.title.y = element_text(vjust=3),
-          axis.text = element_text(size=14), legend.text = element_text(size=15), legend.title = element_text(size=16), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
+    theme(plot.title = element_text(size=22), axis.title = element_text(size = 20), axis.title.y = element_text(vjust=3),
+          axis.text = element_text(size=18), legend.text = element_text(size=18), legend.title = element_text(size=18), legend.key.height=unit(2, 'cm')) + guides(color=guide_legend(reverse=TRUE))
 }
 ```
 
@@ -62,7 +62,7 @@ trueVE <- matrix(nrow=length(distGrid), ncol=5)
 truePE <- numeric(5)
 ```
 
-## Pooled VRC01 vs. Placebo
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
 # AMP-B IC50 VRC01 vs. Control
 
@@ -205,7 +205,7 @@ for (i in 1:length(markVE)) {
 plotPower(distGrid, trueVE, "IC80", "704and703", "2:1")
 ```
 
-## 30 ug/ml vs. Placebo
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
 # AMP-B IC50 VRC01 vs. Control
 
