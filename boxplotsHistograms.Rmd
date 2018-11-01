@@ -1,0 +1,71 @@
+---
+title: "Boxplots and Histograms"
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+library(ggplot2)
+library(reshape2)
+
+dataFile <- "T:/vaccine/rtss_malaria_sieve/Stephanie's work/AMP"
+
+subB <- read.csv(file.path(dataFile, "catnap_vrc01_neut_b.csv"))
+subC <- read.csv(file.path(dataFile, "catnap_vrc01_neut_c.csv"))
+subPooled <- read.csv(file.path(dataFile, "catnap_vrc01_neut_all.csv"))
+
+# load and prepare Clade C data
+mascola <- read.csv(file.path(dataFile,"Mascola_Acute_Clade_C_VRC01.csv"), header=TRUE, stringsAsFactors = FALSE)
+mascola$IC50[mascola$IC50==">10"] <- "20"
+mascola$IC80[mascola$IC80==">10"] <- "20"
+colnames(mascola) <- c("ID", "ic50.geometric.mean.imputed.log10", "ic80.geometric.mean.imputed.log10")
+mascola$ic50.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic50.geometric.mean.imputed.log10))
+mascola$ic80.geometric.mean.imputed.log10 <- log10(as.numeric(mascola$ic80.geometric.mean.imputed.log10))
+```
+
+# Boxplots
+  
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=9, fig.height=3.5}
+
+AMP704IC50 <- subB$ic50.geometric.mean.imputed.log10
+AMP704IC80 <- subB$ic80.geometric.mean.imputed.log10
+AMP703IC50 <- subC$ic50.geometric.mean.imputed.log10
+AMP703IC80 <- subC$ic80.geometric.mean.imputed.log10
+mascolaIC50 <- mascola$ic50.geometric.mean.imputed.log10
+mascolaIC80 <- mascola$ic80.geometric.mean.imputed.log10
+
+combinedIC50 <- cbind(AMP704IC50, AMP703IC50, mascolaIC50)
+colnames(combinedIC50) <- c("CATNAP Clade B", "CATNAP Clade C", "VRC Clade C")
+combinedIC80 <- cbind(AMP704IC80, AMP703IC80, mascolaIC80)
+colnames(combinedIC80) <- c("CATNAP Clade B", "CATNAP Clade C", "VRC Clade C")
+
+# clade_names <- list(
+#   'AMP704IC50'="CATNAP Clade B",
+#   'AMP703IC50'="CATNAP Clade C",
+#   'mascolaIC50'="VRC Clade C",
+#   'AMP704IC8'="CATNAP Clade B",
+#   'AMP703IC80'="CATNAP Clade C",
+#   'mascolaIC80'="VRC Clade C"
+# )
+# 
+# clade_labeller <- function(variable,value){
+#   return(clade_names[value])
+# }
+
+dataIC50 <- melt(combinedIC50)
+colnames(dataIC50) <- c("number", "Scenario", "log10Value")
+ggplot(dataIC50, aes(x=Scenario, y=log10Value, fill=Scenario)) + geom_boxplot() + facet_wrap(~Scenario, scale="free_x") + theme(text = element_text(size=15), legend.position="none", axis.title = element_text(size=17), axis.title.x=element_blank(), axis.text.x=element_blank()) + ylim(-2,2) + ylab("Log10 IC50")
+
+dataIC80 <- melt(combinedIC80)
+colnames(dataIC80) <- c("number", "Scenario", "log10Value")
+ggplot(dataIC80, aes(x=Scenario, y=log10Value, fill=Scenario)) + geom_boxplot() + facet_wrap(~Scenario, scale="free_x") + theme(text = element_text(size=15), legend.position="none", axis.title = element_text(size=17), axis.title.x=element_blank(), axis.text.x=element_blank()) + ylim(-2,2) + ylab("Log10 IC80")
+```
+
+# Histograms
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=9, fig.height=3.5}
+
+ggplot(dataIC50, aes(x=log10Value, y=..count../sum(..count..), fill=Scenario)) + geom_histogram() + facet_grid(~Scenario) + ylab("Density")+ theme(text = element_text(size=15), legend.position="none", axis.title = element_text(size=17), axis.text.x = element_blank()) + xlim(-2,2) + xlab("Log10 IC50")
+
+ggplot(dataIC80, aes(x=log10Value, y=..count../sum(..count..), fill=Scenario)) + geom_histogram() + facet_grid(~Scenario) + ylab("Density")+ theme(text = element_text(size=15), legend.position="none", axis.title = element_text(size=17)) + xlim(-2,2) + xlab("Log10 IC80")
+```
